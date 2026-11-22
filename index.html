@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Skewer Sort – Prototype</title>
+<style>
+  :root{--bg1:#ffe9c7;--bg2:#ffb88a;--wood:#d39a5c;--wood2:#8a5a2b;--ink:#4a2c14;--accent:#ff6b4a}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
+  body{background:linear-gradient(170deg,var(--bg1),var(--bg2));display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:manipulation}
+  .wrap{width:100%;max-width:480px;height:100%;display:flex;flex-direction:column}
+  header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 4px}
+  .pill{background:#fff9;border-radius:999px;padding:5px 12px;font-weight:800;font-size:15px}
+  /* orders */
+  #orders{display:flex;gap:8px;padding:6px 10px;justify-content:center}
+  .order{flex:1;max-width:140px;height:62px;border-radius:12px;background:linear-gradient(#e8b273,#c98745);border:3px solid var(--wood2);display:flex;align-items:center;justify-content:space-around;padding:0 4px;box-shadow:0 4px 0 #0003;transition:transform .3s,opacity .3s}
+  .order.empty{opacity:.25}
+  .order.closing{transform:scale(1.12) translateY(-10px);opacity:0}
+  .order.opening{animation:pop .35s}
+  .oslot{width:34px;height:40px;border-radius:8px;background:#0002;display:flex;align-items:center;justify-content:center;font-size:28px}
+  .oslot.shadow span{filter:brightness(0);opacity:.3}
+  .oslot.hide span{visibility:hidden}
+  /* buffer */
+  #buffer{display:flex;gap:6px;justify-content:center;padding:8px 10px}
+  .bslot{width:50px;height:50px;border-radius:12px;background:#fff6;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:30px}
+  .bslot.extra{border-color:var(--accent)}
+  .bslot.hide span{visibility:hidden}
+  #buffer.warn .bslot{border-color:#ff3b30;animation:shake .3s}
+  /* board */
+  #board{flex:1;display:flex;gap:6px;padding:6px 8px;min-height:0}
+  .col{flex:1;position:relative;overflow:hidden;border-radius:12px;background:#0000001a}
+  .col::after{content:attr(data-arrow);position:absolute;bottom:2px;right:4px;font-size:11px;opacity:.4}
+  .crate{position:absolute;left:3px;right:3px;border-radius:10px;background:linear-gradient(#f3c98f,#d9a062);border:2px solid var(--wood2);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;padding:2px;will-change:transform}
+  .crate .prod:nth-child(3){grid-column:1 / span 2}
+  .crate.emptyc{opacity:.45}
+  .prod{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;font-size:var(--pf,22px);line-height:1;overflow:visible;cursor:pointer}
+  .prod.gone{visibility:hidden;pointer-events:none}
+  footer{display:flex;justify-content:space-around;padding:8px 10px calc(12px + env(safe-area-inset-bottom))}
+  .btn{border:none;border-radius:16px;background:#fff;color:var(--ink);font-size:13px;font-weight:800;padding:8px 10px;min-width:84px;box-shadow:0 4px 0 #0002;display:flex;flex-direction:column;align-items:center;gap:1px}
+  .btn .i{font-size:20px}
+  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #0002}
+  .btn:disabled{opacity:.4}
+  .fly{position:fixed;z-index:20;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:28px;transition:transform .32s cubic-bezier(.3,.7,.4,1)}
+  #overlay{position:fixed;inset:0;background:#0006;display:none;align-items:center;justify-content:center;z-index:30}
+  #overlay.show{display:flex}
+  .card{background:#fff;border-radius:22px;padding:22px 24px;text-align:center;width:min(86vw,320px);animation:pop .35s}
+  .card h2{margin:4px 0 8px;font-size:24px}
+  .card .big{font-size:52px}
+  .card button{margin:10px 4px 0;border:none;background:var(--accent);color:#fff;font-size:17px;font-weight:800;padding:11px 20px;border-radius:14px;box-shadow:0 4px 0 #b53c22}
+  .card button.alt{background:#3bb273;box-shadow:0 4px 0 #23804f}
+  @keyframes pop{0%{transform:scale(.5)}70%{transform:scale(1.1)}100%{transform:scale(1)}}
+  @keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="pill" id="lvl">Level 1</div>
+    <div class="pill" id="left">0</div>
+    <div class="pill">🪙 <span id="coins">0</span></div>
+  </header>
+  <div id="orders"></div>
+  <div id="buffer"></div>
+  <div id="board"></div>
+  <footer>
+    <button class="btn" id="bFreeze"><span class="i">❄️</span><span id="tFreeze">Freeze</span></button>
+    <button class="btn" id="bSlot"><span class="i">➕</span><span id="tSlot">+1 slot</span></button>
+    <button class="btn" id="bRestart"><span class="i">🔄</span><span id="tRestart">Restart</span></button>
+  </footer>
+</div>
+<div id="overlay"><div class="card"><div class="big" id="ovIcon">🎉</div><h2 id="ovTitle"></h2><div id="ovText"></div><div id="ovBtns"></div></div></div>
+
+<script>
+// ---------- i18n (auto-detect phone language) ----------
+const LANG=(navigator.language||'en').toLowerCase().startsWith('es')?'es':'en';
+const T={
+  en:{level:'Level',left:'left',freeze:'Freeze',slot:'+1 slot',restart:'Restart',win:'Level complete!',next:'Next',coins:'+{n} coins',lose:'No space left!',loseTxt:'The holding area is full.',retry:'Retry',cont:'+1 slot & continue'},
+  es:{level:'Nivel',left:'quedan',freeze:'Congelar',slot:'+1 espacio',restart:'Reiniciar',win:'¡Nivel completado!',next:'Siguiente',coins:'+{n} monedas',lose:'¡Sin espacio!',loseTxt:'Se llenó la zona de espera.',retry:'Reintentar',cont:'+1 espacio y seguir'}
+}[LANG];
+document.documentElement.lang=LANG;
+const $=id=>document.getElementById(id);
+$('tFreeze').textContent=T.freeze;$('tSlot').textContent=T.slot;$('tRestart').textContent=T.restart;
+
+const store={get(k,d){try{const v=localStorage.getItem('ss_'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},
+             set(k,v){try{localStorage.setItem('ss_'+k,JSON.stringify(v))}catch(e){}}};
+
+// ---------- config ----------
+const FOODS=['🍓','🍇','🍋','🍄','🧅','🍅','🌽','🥩','🍤','🫑','🥝','🍍','🧀','🍩','🥕','🍒'];
+const COLS=4, VISIBLE=5, LOOP=6, PER=3, ORDERS=3, BUF=5;
+
+let level=store.get('level',1), coins=store.get('coins',0);
+let cols, orders, buffer, offsets, speed, crateH, frozenUntil=0, busy=0, over=false, slotUsed=false, freezeUsed=false, lastT=0;
+
+// ---------- level generation (procedural) ----------
+function genLevel(lv){
+  const nTypes=Math.min(5+lv,FOODS.length);
+  const pool=FOODS.slice().sort(()=>Math.random()-.5).slice(0,nTypes);
+  const triples=COLS*LOOP; // 24 triples = 72 products
+  const bag=[];
+  for(let i=0;i<triples;i++){const t=pool[i%nTypes];bag.push(t,t,t)}
+  for(let i=bag.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[bag[i],bag[j]]=[bag[j],bag[i]]}
+  cols=[];let k=0;
+  for(let c=0;c<COLS;c++){const col=[];for(let i=0;i<LOOP;i++)col.push([bag[k++],bag[k++],bag[k++]]);cols.push(col)}
+  buffer=new Array(BUF).fill(null);
+  orders=[];
+  for(let i=0;i<ORDERS;i++)orders.push(newOrder());
+  offsets=cols.map(()=>Math.random()*100);
+  speed=Math.min(14+lv*3,55);
+}
+function counts(){const m={};cols.forEach(col=>col.forEach(cr=>cr.forEach(t=>{if(t)m[t]=(m[t]||0)+1})));buffer.forEach(x=>{const t=x&&(x.t||x);if(t)m[t]=(m[t]||0)+1});return m}
+function newOrder(){
+  const m=counts(), active=new Set(orders.filter(Boolean).map(o=>o.t));
+  const cand=Object.keys(m).filter(t=>!active.has(t));
+  if(!cand.length)return null;
+  // prefer something already waiting in the holding area (helps the player)
+  const inBuf=cand.filter(t=>buffer.includes(t));
+  let t;
+  if(inBuf.length&&Math.random()<.7){inBuf.sort((a,b)=>buffer.filter(x=>x===b).length-buffer.filter(x=>x===a).length);t=inBuf[0]}
+  else t=cand[Math.random()*cand.length|0];
+  return {t,n:0,arrived:0};
+}
+
+// ---------- rendering ----------
+function renderOrders(){
+  $('orders').innerHTML=orders.map((o,i)=>{
+    if(!o)return `<div class="order empty" id="o${i}"></div>`;
+    let s='';for(let k=0;k<PER;k++){
+      const cls=k<o.arrived?'':(k<o.n?'hide':'shadow');
+      s+=`<div class="oslot ${cls}" id="o${i}s${k}"><span>${o.t}</span></div>`}
+    return `<div class="order" id="o${i}">${s}</div>`}).join('');
+}
+function renderBuffer(){
+  $('buffer').innerHTML=buffer.map((t,i)=>`<div class="bslot ${i>=BUF?'extra':''} ${t&&t.pending?'hide':''}" id="b${i}"><span>${t?(t.t||t):''}</span></div>`).join('');
+}
+function buildBoard(){
+  const b=$('board');b.innerHTML='';
+  cols.forEach((col,c)=>{
+    const ce=document.createElement('div');ce.className='col';ce.dataset.arrow=c%2===0?'▼':'▲';
+    col.forEach((cr,i)=>{
+      const el=document.createElement('div');el.className='crate';el.id=`c${c}_${i}`;
+      cr.forEach((t,k)=>{const p=document.createElement('div');p.className='prod'+(t?'':' gone');p.textContent=t||'';p.id=`p${c}_${i}_${k}`;
+        p.addEventListener('pointerdown',e=>{e.preventDefault();tapProd(c,i,k)});el.appendChild(p)});
+      ce.appendChild(el);
+    });
+    b.appendChild(ce);
+  });
+  layout();
+}
+function layout(){
+  const h=$('board').querySelector('.col')?.clientHeight||400;
+  crateH=h/VISIBLE;
+  const w=$('board').querySelector('.col')?.clientWidth||80;
+  document.documentElement.style.setProperty('--pf',Math.min(40,(w-14)/2.3,(crateH-14)/2.3)+'px');
+  document.querySelectorAll('.crate').forEach(el=>{el.style.height=(crateH-6)+'px'});
+  positionCrates();
+}
+function positionCrates(){
+  const L=LOOP*crateH;
+  for(let c=0;c<COLS;c++)for(let i=0;i<LOOP;i++){
+    const y=((i*crateH+offsets[c])%L+L)%L-crateH;
+    const el=$(`c${c}_${i}`);if(el)el.style.transform=`translateY(${y+3}px)`;
+  }
+}
+function updateHud(){
+  $('lvl').textContent=T.level+' '+level;$('coins').textContent=coins;
+  const m=counts();let n=0;for(const k in m)n+=m[k];$('left').textContent='🍽️ '+n;
+  $('bSlot').disabled=slotUsed;$('bFreeze').disabled=freezeUsed;
+}
+
+// ---------- animation loop: columns 1&3 go down, 2&4 go up, wrapping ----------
+function loop(ts){
+  const dt=Math.min(.05,(ts-lastT)/1000||0);lastT=ts;
+  if(!over&&ts>frozenUntil){for(let c=0;c<COLS;c++)offsets[c]+=(c%2===0?1:-1)*speed*dt}
+  positionCrates();
+  requestAnimationFrame(loop);
+}
+
+// ---------- flying product ----------
+function fly(t,fromEl,toId,done){
+  const a=fromEl.getBoundingClientRect();
+  const f=document.createElement('div');f.className='fly';f.textContent=t;
+  f.style.left=a.left+'px';f.style.top=a.top+'px';f.style.width=a.width+'px';f.style.height=a.height+'px';
+  document.body.appendChild(f);busy++;
+  requestAnimationFrame(()=>{const to=$(toId);if(!to){f.remove();busy--;done();return}
+    const b=to.getBoundingClientRect();
+    f.style.transform=`translate(${b.left+b.width/2-a.left-a.width/2}px,${b.top+b.height/2-a.top-a.height/2}px)`;});
+  setTimeout(()=>{f.remove();busy--;done()},340);
+}
+function buzz(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
+
+// ---------- input ----------
+function tapProd(c,i,k){
+  if(over)return;
+  const t=cols[c][i][k];if(!t)return;
+  const oi=orders.findIndex(o=>o&&o.t===t&&o.n<PER);
+  const src=$(`p${c}_${i}_${k}`);
+  if(oi>=0){
+    cols[c][i][k]=null;const o=orders[oi];const slot=o.n++;
+    buzz(12);
+    fly(t,src,`o${oi}s${slot}`,()=>{o.arrived++;renderOrders();checkOrder(oi)});
+    src.classList.add('gone');renderOrders();
+  } else {
+    const bi=buffer.indexOf(null);
+    if(bi<0){gameOver();return}
+    cols[c][i][k]=null;buffer[bi]={t,pending:true};
+    src.classList.add('gone');renderBuffer();buzz(25);
+    fly(t,src,`b${bi}`,()=>{if(buffer[bi]&&buffer[bi].pending)buffer[bi]=t;renderBuffer();orders.forEach((o,j)=>{if(o&&o.t===t)pullFromBuffer(j)});checkFull()});
+  }
+  updateHud();
+}
+function checkOrder(oi){
+  const o=orders[oi];if(!o||o.arrived<PER)return;
+  buzz([20,40,20]);
+  $(`o${oi}`).classList.add('closing');
+  setTimeout(()=>{
+    orders[oi]=null;orders[oi]=newOrder();renderOrders();
+    const el=$(`o${oi}`);if(el&&orders[oi])el.classList.add('opening');
+    pullFromBuffer(oi);
+    checkWin();
+  },380);
+}
+function pullFromBuffer(oi){
+  const o=orders[oi];if(!o)return;
+  buffer.forEach((t,bi)=>{
+    if(typeof t==='string'&&t===o.t&&o.n<PER){
+      const slot=o.n++;const src=$(`b${bi}`);
+      buffer[bi]=null;
+      fly(t,src,`o${oi}s${slot}`,()=>{o.arrived++;renderOrders();checkOrder(oi)});
+    }
+  });
+  renderBuffer();renderOrders();updateHud();
+}
+function checkFull(){
+  const full=buffer.every(x=>x);
+  $('buffer').classList.toggle('warn',full);
+  if(full)setTimeout(()=>$('buffer').classList.remove('warn'),400);
+}
+function checkWin(){
+  const m=counts();
+  if(Object.keys(m).length===0&&orders.every(o=>!o)){
+    over=true;const reward=20+level*3;coins+=reward;level++;
+    store.set('level',level);store.set('coins',coins);updateHud();
+    showOverlay('🎉',T.win,T.coins.replace('{n}',reward),[[T.next,'',()=>startLevel()]]);
+  }
+}
+function gameOver(){
+  over=true;buzz(200);
+  const btns=[[T.retry,'',()=>startLevel()]];
+  if(!slotUsed)btns.unshift([T.cont,'alt',()=>{addSlot();over=false;hideOverlay()}]);
+  showOverlay('😵',T.lose,T.loseTxt,btns);
+}
+function showOverlay(icon,title,text,btns){
+  $('ovIcon').textContent=icon;$('ovTitle').textContent=title;$('ovText').textContent=text;
+  const box=$('ovBtns');box.innerHTML='';
+  btns.forEach(([label,cls,fn])=>{const b=document.createElement('button');b.textContent=label;b.className=cls;b.onclick=fn;box.appendChild(b)});
+  $('overlay').classList.add('show');
+}
+function hideOverlay(){$('overlay').classList.remove('show')}
+
+// ---------- boosters ----------
+function addSlot(){if(slotUsed)return;slotUsed=true;buffer.push(null);renderBuffer();updateHud()}
+$('bSlot').onclick=()=>{if(!over)addSlot()};
+$('bFreeze').onclick=()=>{if(over||freezeUsed)return;freezeUsed=true;frozenUntil=performance.now()+6000;updateHud()};
+$('bRestart').onclick=()=>startLevel();
+
+function startLevel(){
+  hideOverlay();over=false;slotUsed=false;freezeUsed=false;frozenUntil=0;
+  genLevel(level);renderOrders();renderBuffer();buildBoard();updateHud();
+}
+window.addEventListener('resize',layout);
+startLevel();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
