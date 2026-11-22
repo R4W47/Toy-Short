@@ -19,7 +19,7 @@
   .order.closing{transform:scale(1.12) translateY(-10px);opacity:0}
   .order.opening{animation:pop .35s}
   .oslot{width:34px;height:40px;border-radius:8px;background:#0002;display:flex;align-items:center;justify-content:center;font-size:28px}
-  .oslot.shadow span{filter:brightness(0);opacity:.3}
+  .oslot.shadow span{filter:blur(1.4px) grayscale(.35) brightness(1.1);opacity:.5}
   .oslot.hide span{visibility:hidden}
   /* buffer */
   #buffer{display:flex;gap:6px;justify-content:center;padding:8px 10px}
@@ -31,9 +31,14 @@
   #board{flex:1;display:flex;gap:6px;padding:6px 8px;min-height:0}
   .col{flex:1;position:relative;overflow:hidden;border-radius:12px;background:#0000001a}
   .col::after{content:attr(data-arrow);position:absolute;bottom:2px;right:4px;font-size:11px;opacity:.4}
-  .crate{position:absolute;left:3px;right:3px;border-radius:10px;background:linear-gradient(#f3c98f,#d9a062);border:2px solid var(--wood2);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;padding:2px;will-change:transform}
+  .crate{position:absolute;left:3px;right:3px;will-change:transform}
+  .crate .back{position:absolute;top:0;left:6px;right:6px;height:24px;border-radius:9px 9px 0 0;background:linear-gradient(#b9814a,#9a6634);border:2px solid var(--wood2);border-bottom:none}
+  .crate .back b{position:absolute;right:4px;top:0;font-size:11px;color:#fff;font-weight:900}
+  .crate .front{position:absolute;top:10px;left:0;right:0;bottom:0;border-radius:10px;background:linear-gradient(#f3c98f,#d9a062);border:2px solid var(--wood2);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;padding:2px}
+  .crate .front.rise{animation:rise .35s ease-out}
+  @keyframes rise{0%{transform:translateY(-10px) scale(.9);filter:brightness(.7)}100%{transform:none;filter:none}}
   .crate .prod:nth-child(3){grid-column:1 / span 2}
-  .crate.emptyc{opacity:.45}
+  .crate.emptyc .front{opacity:.45}
   .prod{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;font-size:var(--pf,22px);line-height:1;overflow:visible;cursor:pointer}
   .prod.gone{visibility:hidden;pointer-events:none}
   footer{display:flex;justify-content:space-around;padding:8px 10px calc(12px + env(safe-area-inset-bottom))}
@@ -96,19 +101,22 @@ let cols, orders, buffer, offsets, speed, crateH, frozenUntil=0, busy=0, over=fa
 function genLevel(lv){
   const nTypes=Math.min(5+lv,FOODS.length);
   const pool=FOODS.slice().sort(()=>Math.random()-.5).slice(0,nTypes);
-  const triples=COLS*LOOP; // 24 triples = 72 products
+  // how many layers (boxes stacked behind) each crate has
+  const p1=Math.min(.3+lv*.06,.85), p2=lv>=4?Math.min((lv-3)*.08,.5):0;
+  const layersOf=[];for(let i=0;i<COLS*LOOP;i++)layersOf.push(1+(Math.random()<p1?1:0)+(Math.random()<p2?1:0));
+  const triples=layersOf.reduce((a,b)=>a+b,0);
   const bag=[];
   for(let i=0;i<triples;i++){const t=pool[i%nTypes];bag.push(t,t,t)}
   for(let i=bag.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[bag[i],bag[j]]=[bag[j],bag[i]]}
   cols=[];let k=0;
-  for(let c=0;c<COLS;c++){const col=[];for(let i=0;i<LOOP;i++)col.push([bag[k++],bag[k++],bag[k++]]);cols.push(col)}
+  let q=0;for(let c=0;c<COLS;c++){const col=[];for(let i=0;i<LOOP;i++){const L=[];for(let n=0;n<layersOf[q];n++)L.push([bag[k++],bag[k++],bag[k++]]);q++;col.push(L)}cols.push(col)}
   buffer=new Array(BUF).fill(null);
   orders=[];
   for(let i=0;i<ORDERS;i++)orders.push(newOrder());
   offsets=cols.map(()=>Math.random()*100);
   speed=Math.min(14+lv*3,55);
 }
-function counts(){const m={};cols.forEach(col=>col.forEach(cr=>cr.forEach(t=>{if(t)m[t]=(m[t]||0)+1})));buffer.forEach(x=>{const t=x&&(x.t||x);if(t)m[t]=(m[t]||0)+1});return m}
+function counts(){const m={};cols.forEach(col=>col.forEach(cr=>cr.forEach(L=>L.forEach(t=>{if(t)m[t]=(m[t]||0)+1}))));buffer.forEach(x=>{const t=x&&(x.t||x);if(t)m[t]=(m[t]||0)+1});return m}
 function newOrder(){
   const m=counts(), active=new Set(orders.filter(Boolean).map(o=>o.t));
   const cand=Object.keys(m).filter(t=>!active.has(t));
@@ -139,19 +147,35 @@ function buildBoard(){
     const ce=document.createElement('div');ce.className='col';ce.dataset.arrow=c%2===0?'▼':'▲';
     col.forEach((cr,i)=>{
       const el=document.createElement('div');el.className='crate';el.id=`c${c}_${i}`;
-      cr.forEach((t,k)=>{const p=document.createElement('div');p.className='prod'+(t?'':' gone');p.textContent=t||'';p.id=`p${c}_${i}_${k}`;
-        p.addEventListener('pointerdown',e=>{e.preventDefault();tapProd(c,i,k)});el.appendChild(p)});
-      ce.appendChild(el);
+      ce.appendChild(el);fillCrate(c,i,el,false);
     });
     b.appendChild(ce);
   });
   layout();
 }
+function fillCrate(c,i,el,rise){
+  el=el||$(`c${c}_${i}`);if(!el)return;
+  const L=cols[c][i], front=L[0]||[null,null,null];
+  el.innerHTML='';
+  if(L.length>1){const bk=document.createElement('div');bk.className='back';bk.innerHTML=L.length>2?`<b>×${L.length-1}</b>`:'';el.appendChild(bk)}
+  const f=document.createElement('div');f.className='front'+(rise?' rise':'');
+  front.forEach((t,k)=>{const p=document.createElement('div');p.className='prod'+(t?'':' gone');p.textContent=t||'';p.id=`p${c}_${i}_${k}`;
+    p.addEventListener('pointerdown',e=>{e.preventDefault();tapProd(c,i,k)});f.appendChild(p)});
+  el.classList.toggle('emptyc',front.every(t=>!t));
+  el.appendChild(f);
+}
+function afterTake(c,i){
+  const L=cols[c][i];
+  if(L[0].every(t=>!t)){
+    if(L.length>1){setTimeout(()=>{L.shift();fillCrate(c,i,null,true)},260)}
+    else $(`c${c}_${i}`).classList.add('emptyc');
+  }
+}
 function layout(){
   const h=$('board').querySelector('.col')?.clientHeight||400;
   crateH=h/VISIBLE;
   const w=$('board').querySelector('.col')?.clientWidth||80;
-  document.documentElement.style.setProperty('--pf',Math.min(40,(w-14)/2.3,(crateH-14)/2.3)+'px');
+  document.documentElement.style.setProperty('--pf',Math.min(40,(w-14)/2.3,(crateH-24)/2.3)+'px');
   document.querySelectorAll('.crate').forEach(el=>{el.style.height=(crateH-6)+'px'});
   positionCrates();
 }
@@ -192,18 +216,18 @@ function buzz(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
 // ---------- input ----------
 function tapProd(c,i,k){
   if(over)return;
-  const t=cols[c][i][k];if(!t)return;
+  const t=cols[c][i][0][k];if(!t)return;
   const oi=orders.findIndex(o=>o&&o.t===t&&o.n<PER);
   const src=$(`p${c}_${i}_${k}`);
   if(oi>=0){
-    cols[c][i][k]=null;const o=orders[oi];const slot=o.n++;
+    cols[c][i][0][k]=null;afterTake(c,i);const o=orders[oi];const slot=o.n++;
     buzz(12);
     fly(t,src,`o${oi}s${slot}`,()=>{o.arrived++;renderOrders();checkOrder(oi)});
     src.classList.add('gone');renderOrders();
   } else {
     const bi=buffer.indexOf(null);
     if(bi<0){gameOver();return}
-    cols[c][i][k]=null;buffer[bi]={t,pending:true};
+    cols[c][i][0][k]=null;afterTake(c,i);buffer[bi]={t,pending:true};
     src.classList.add('gone');renderBuffer();buzz(25);
     fly(t,src,`b${bi}`,()=>{if(buffer[bi]&&buffer[bi].pending)buffer[bi]=t;renderBuffer();orders.forEach((o,j)=>{if(o&&o.t===t)pullFromBuffer(j)});checkFull()});
   }
