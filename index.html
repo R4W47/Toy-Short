@@ -137,13 +137,13 @@ const T = {
       lose:'Out of space!', loseText:'The spaces are full. Try again!', retry:'Try again', menu:'Main menu',
       double:'x2 with an ad', doubled:'Coins doubled!', loseRevive:'Clear the spaces and keep going?',
       reviveAd:'Watch ad & clear spaces', revivePay:'Clear spaces', revLeft:n=>n===1?'1 revive left this level':n+' revives left this level',
-      noCoins:'Not enough coins', loading:'Loading…', pause:'Paused', resume:'Continue', slotFull:'Already used this level'},
+      noCoins:'Not enough coins', loading:'Loading…', pause:'Paused', resume:'Continue', slotFull:'Already used this level', newBoost:'New power-up! +2', noUse:"Can't use that now"},
   es:{level:'Nivel', lv:'Nv.', play:'Jugar', zone:'Jugar', sub:'¡Ordena los juguetes!', tagline:'Junta 3 juguetes iguales y llena las cajas',
       win:'¡Nivel superado!', winText:n=>'Nivel '+n+' completado', next:'Siguiente nivel',
       lose:'¡Sin espacio!', loseText:'Los espacios se llenaron. ¡Inténtalo otra vez!', retry:'Reintentar', menu:'Menú principal',
       double:'x2 viendo un anuncio', doubled:'¡Monedas duplicadas!', loseRevive:'¿Vaciar los espacios y seguir?',
       reviveAd:'Ver anuncio y vaciar espacios', revivePay:'Vaciar espacios', revLeft:n=>n===1?'Te queda 1 revivida en este nivel':'Te quedan '+n+' revividas en este nivel',
-      noCoins:'No te alcanzan las monedas', loading:'Cargando…', pause:'Pausa', resume:'Continuar', slotFull:'Ya lo usaste en este nivel'}
+      noCoins:'No te alcanzan las monedas', loading:'Cargando…', pause:'Pausa', resume:'Continuar', slotFull:'Ya lo usaste en este nivel', newBoost:'¡Nuevo potenciador! +2', noUse:'Ahora no se puede usar'}
 }[LANG];
 
 // ---------- Productos (juguetes) ----------
@@ -204,9 +204,18 @@ const SLOT={n:5,w:146,h:48,y:482};
 const SLOT_ITEM=120;
 // Estantes: 5 filas. Filas fijas (cubículos) y filas que se deslizan de lado.
 const ROW={top:600,h:232,n:5};
-// Barra de potenciadores abajo: se abren con el nivel. Por ahora solo funciona el "+" (espacio extra).
+// Barra de potenciadores abajo: se abren con el nivel y regalan 2 usos; después se consiguen con anuncio.
 const BOOST={y:1774,s:124,gap:34}; BOOST.top=BOOST.y-14;
-const BOOSTERS=[{id:'slot',lv:3},{id:'magnet',lv:5,soon:true},{id:'undo',lv:7,soon:true},{id:'shuffle',lv:10,soon:true}];
+const BOOSTERS=[{id:'slot',lv:3},{id:'magnet',lv:5},{id:'undo',lv:7},{id:'shuffle',lv:10}];
+const GIFT=2;
+let inv={}; try{ inv=JSON.parse(localStorage.getItem('toysort_boost')||'{}')||{}; }catch(e){ inv={}; }
+inv.n=inv.n||{}; inv.given=inv.given||{};
+function saveInv(){ try{ localStorage.setItem('toysort_boost',JSON.stringify(inv)); }catch(e){} }
+function giftNew(){                                   // regalo al desbloquear (una sola vez por potenciador)
+  let got=false;
+  BOOSTERS.forEach(b=>{ if(level>=b.lv&&!inv.given[b.id]){ inv.given[b.id]=1; inv.n[b.id]=(inv.n[b.id]||0)+GIFT; got=true; } });
+  if(got){ saveInv(); toast={msg:T.newBoost,t:2.2}; }
+}
 const CELL=100, ITEM=128;                             // separación y tamaño de los juguetes del frente
 const BACK={dx:0.84, dy:-40, sc:0.84};                // fila de atrás: más junta, más arriba, más chica
 const FIX_W=W/3;
@@ -218,7 +227,7 @@ const MASKS=[[1,0,1],[0,1,0],[1,1,1],[0,1,1],[1,1,0]];
 
 // ---------- Estado ----------
 let level=1; try{ level=+localStorage.getItem('skewer_level')||1; }catch(e){}
-let extraUsed=false, toast=null, rows, stations, targets, locked, slots, flying, state, total, sorted, shownProg=0, adPaused=false, bgLevel=null;
+let extraUsed=false, toast=null, history=[], shuffleFx=0, rows, stations, targets, locked, slots, flying, state, total, sorted, shownProg=0, adPaused=false, bgLevel=null;
 
 function rnd(n){return Math.floor(Math.random()*n);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
@@ -272,7 +281,7 @@ function newLevel(){
   spread(allTrays, D.spread);
   stations.forEach(st=>st.q=st.q.filter(tr=>tr.some(v=>v!==null))); // sin capas vacías
   total=triples*3; sorted=0; shownProg=0;
-  slots=new Array(SLOT.n).fill(null); extraUsed=false; toast=null;
+  slots=new Array(SLOT.n).fill(null); extraUsed=false; toast=null; history=[]; shuffleFx=0;
   locked=[false,false,true,true];
   targets=[null,null,null,null];
   flying=[];
@@ -281,6 +290,7 @@ function newLevel(){
   for(let i=0;i<TGT.n;i++) if(!locked[i]) targets[i]=makeTarget(i);
   buildBg();
   hideAll();
+  giftNew();
 }
 
 function remainingOf(t){
@@ -482,7 +492,7 @@ function lockIcon(cx,cy){
 function drawBoosters(){
   ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
   BOOSTERS.forEach((b,i)=>{
-    const x=boostX(i), y=BOOST.y, s=BOOST.s, open=level>=b.lv&&!b.soon, used=b.id==='slot'&&extraUsed;
+    const x=boostX(i), y=BOOST.y, s=BOOST.s, open=level>=b.lv, used=b.id==='slot'&&extraUsed;
     ctx.globalAlpha=used?0.5:1;
     ctx.fillStyle='#b06a33'; rr(ctx,x,y+8,s,s,24); ctx.fill();
     ctx.fillStyle=grad(ctx,y,y+s,'#fbe0b4','#eeb877'); rr(ctx,x,y,s,s-4,24); ctx.fill();
@@ -497,12 +507,30 @@ function drawBoosters(){
       ctx.fillStyle=grad(ctx,cy,cy+30,'#e7a965','#c98444'); rr(ctx,cx-40,cy+2,80,26,8); ctx.fill();
       ctx.fillStyle='#f6cf9a'; rr(ctx,cx-40,cy-6,80,16,8); ctx.fill();
       ctx.fillStyle='#e0703a'; rr(ctx,cx-26,cy-34,52,14,5); ctx.fill(); rr(ctx,cx-7,cy-53,14,52,5); ctx.fill();
-      if(!used){
-        const bx=x+s-14, by=y+s-12;
-        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(bx,by,24,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle=grad(ctx,by-20,by+20,'#5fd54a','#2f9f2a'); ctx.beginPath(); ctx.arc(bx,by,20,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#fff'; rr(ctx,bx-11,by-4,22,8,3); ctx.fill(); rr(ctx,bx-4,by-11,8,22,3); ctx.fill();
-      }
+    } else if(b.id==='magnet'){
+      ctx.lineCap='butt'; ctx.lineWidth=24; ctx.strokeStyle='#e0473a';
+      ctx.beginPath(); ctx.arc(cx,cy-6,26,Math.PI,0,true); ctx.stroke();
+      ctx.fillStyle='#d9dde2'; ctx.fillRect(cx-38,cy-34,24,20); ctx.fillRect(cx+14,cy-34,24,20);
+      ctx.fillStyle='#e0473a'; ctx.fillRect(cx-38,cy-16,24,12); ctx.fillRect(cx+14,cy-16,24,12);
+    } else if(b.id==='undo'){
+      ctx.lineCap='round'; ctx.lineWidth=14; ctx.strokeStyle='#3b8fd9';
+      ctx.beginPath(); ctx.arc(cx+4,cy+2,26,Math.PI*1.05,Math.PI*2.55); ctx.stroke();
+      ctx.fillStyle='#3b8fd9'; ctx.beginPath(); ctx.moveTo(cx-40,cy-14); ctx.lineTo(cx-6,cy-12); ctx.lineTo(cx-30,cy+16); ctx.closePath(); ctx.fill();
+    } else if(b.id==='shuffle'){
+      ctx.lineCap='round'; ctx.lineWidth=12; ctx.strokeStyle='#8a4fd1'; ctx.fillStyle='#8a4fd1';
+      ctx.beginPath(); ctx.moveTo(cx-36,cy+20); ctx.bezierCurveTo(cx-6,cy+20,cx+2,cy-20,cx+26,cy-20); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-36,cy-20); ctx.bezierCurveTo(cx-6,cy-20,cx+2,cy+20,cx+26,cy+20); ctx.stroke();
+      [[cy-20],[cy+20]].forEach(([yy])=>{ ctx.beginPath(); ctx.moveTo(cx+42,yy); ctx.lineTo(cx+22,yy-14); ctx.lineTo(cx+22,yy+14); ctx.closePath(); ctx.fill(); });
+    }
+    if(open&&!used){
+      // insignia: usos que quedan (naranja) o anuncio (verde)
+      const n=inv.n[b.id]||0, bx=x+s-14, by=y+s-12;
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(bx,by,25,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=n>0?grad(ctx,by-21,by+21,'#ffae4a','#e9701c'):grad(ctx,by-21,by+21,'#5fd54a','#2f9f2a');
+      ctx.beginPath(); ctx.arc(bx,by,21,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff';
+      if(n>0){ ctx.font='700 30px Fredoka,system-ui,sans-serif'; ctx.fillText(String(n),bx,by+2); }
+      else{ ctx.beginPath(); ctx.moveTo(bx-6,by-10); ctx.lineTo(bx+10,by); ctx.lineTo(bx-6,by+10); ctx.closePath(); ctx.fill(); }
     }
   });
   ctx.globalAlpha=1;
@@ -529,8 +557,8 @@ function drawStation(st){
   // fila del frente
   const front=st.q[0];
   if(front) front.forEach((t,j)=>{
-    if(t===null) return;
-    const p=liveCell(st,j);
+    if(t===null||front.hide===j) return;
+    const p=liveCell(st,j); if(shuffleFx>0) p.s*=1-0.35*Math.sin(Math.PI*shuffleFx);
     ctx.save(); ctx.fillStyle='rgba(60,35,15,.16)'; ctx.beginPath(); ctx.ellipse(p.x,rowBoard(st.row)-4,p.s*0.34,8,0,0,Math.PI*2); ctx.fill(); ctx.restore();
     drawProduct(t,p.x,p.y,p.s,'full');
     if(st.rise>0) drawProduct(t,p.x,p.y,p.s,'dark',st.rise);      // se va aclarando al pasar adelante
@@ -572,7 +600,7 @@ function sendToSlot(t,from,s0){
   const i=slots.indexOf(null); if(i<0) return false;
   const s={t,landed:false}; slots[i]=s;
   fly(t,from,slotPos(i),s0,SLOT_ITEM,()=>{ s.landed=true; pullFromSlots(); }); // si ya hay vitrina que calce, sube de una vez
-  return true;
+  return s;
 }
 function fits(t){ return targets.some((tg,i)=>!locked[i]&&tg&&tg.t===t&&tg.pop===0&&tg.fill.includes(false)); }
 function checkLose(){
@@ -653,15 +681,66 @@ function unlockBox(i){
   if(!locked[i]||(window.Ads&&Ads.busy)) return;
   rewarded('unlock',()=>{ if(!locked[i]||state==='menu') return; locked[i]=false; targets[i]=makeTarget(i); pullFromSlots(); });
 }
-// Potenciador "+": un 6.º espacio de espera por el resto del nivel (con anuncio con recompensa)
+// ---------- Potenciadores ----------
+// Quita un juguete de un estante (cualquier capa) y limpia capas vacías
+function takeFrom(st,tr,j){
+  tr[j]=null;
+  if(tr===st.q[0]) checkEmpty(st);
+  else if(tr.every(v=>v===null)) st.q.splice(st.q.indexOf(tr),1);
+}
+function canUse(id){
+  if(id==='slot') return !extraUsed;
+  if(id==='magnet') return targets.some((tg,i)=>!locked[i]&&tg&&tg.pop===0&&tg.fill.includes(false)&&remainingOf(tg.t)>=tg.fill.filter(f=>!f).length);
+  if(id==='undo') return history.some(h=>slots.includes(h.slot)&&h.slot.landed);
+  if(id==='shuffle') return stations.filter(st=>st.q[0]&&st.rise===0).reduce((n,st)=>n+st.q[0].filter(v=>v!==null).length,0)>1;
+  return false;
+}
+function applyBooster(id){
+  if(id==='slot'){ extraUsed=true; slots.push(null); buildBg(); pullFromSlots(); }
+  else if(id==='magnet'){
+    // la vitrina más avanzada: sube los juguetes que le faltan (primero de la espera, luego del frente, luego de atrás)
+    const i=targets.map((tg,k)=>k).filter(k=>{ const tg=targets[k]; return !locked[k]&&tg&&tg.pop===0&&tg.fill.includes(false)&&remainingOf(tg.t)>=tg.fill.filter(f=>!f).length; })
+      .sort((a,b)=>targets[b].fill.filter(Boolean).length-targets[a].fill.filter(Boolean).length)[0];
+    const t=targets[i].t; let need=targets[i].fill.filter(f=>!f).length;
+    slots.forEach((s,k)=>{ if(need>0&&s&&s.landed&&s.t===t&&sendToTarget(t,slotPos(k),SLOT_ITEM)){ slots[k]=null; need--; } });
+    for(let layer=0;layer<6&&need>0;layer++) for(const st of stations){
+      const tr=st.q[layer]; if(!tr) continue;
+      for(let j=0;j<3&&need>0;j++) if(tr[j]===t){
+        const c=layer===0?frontCell(st,j):backCell(st,j);
+        const from={x:Math.max(40,Math.min(W-40,c.x)),y:c.y};
+        if(sendToTarget(t,from,c.s)){ takeFrom(st,tr,j); need--; }
+      }
+    }
+  }
+  else if(id==='undo'){
+    // devuelve a su estante el último juguete que fue a la espera
+    let h; while(history.length){ h=history.pop(); if(slots.includes(h.slot)&&h.slot.landed) break; h=null; }
+    if(!h) return;
+    const k=slots.indexOf(h.slot), st=h.st, t=h.slot.t; slots[k]=null;
+    // si su capa sigue al frente vuelve a su hueco; si no, entra una capa nueva al frente
+    let tr=(st.q[0]===h.tr&&h.tr[h.j]===null)?h.tr:null;
+    if(!tr){ tr=[null,null,null]; st.q.unshift(tr); }
+    st.rise=0; tr[h.j]=t; tr.hide=h.j;                 // oculto mientras vuela de regreso
+    const c=frontCell(st,h.j);
+    fly(t,slotPos(k),{x:Math.max(40,Math.min(W-40,c.x)),y:c.y},SLOT_ITEM,ITEM,()=>{ tr.hide=undefined; });
+  }
+  else if(id==='shuffle'){
+    // mezcla los juguetes del frente de todos los estantes (los huecos quedan donde estaban)
+    const cells=[];
+    stations.forEach(st=>{ if(st.q[0]&&st.rise===0) st.q[0].forEach((v,j)=>{ if(v!==null) cells.push([st.q[0],j]); }); });
+    const vals=shuffle(cells.map(([tr,j])=>tr[j]));
+    cells.forEach(([tr,j],k)=>tr[j]=vals[k]);
+    shuffleFx=1;
+  }
+}
 function useBooster(i){
   const b=BOOSTERS[i];
-  if(level<b.lv||b.soon) return;
-  if(b.id==='slot'){
-    if(extraUsed){ toast={msg:T.slotFull,t:1.6}; return; }
-    if(window.Ads&&Ads.busy) return;
-    rewarded('slot',()=>{ if(extraUsed||state==='menu') return; extraUsed=true; slots.push(null); buildBg(); pullFromSlots(); });
-  }
+  if(level<b.lv||state!=='play') return;
+  if(b.id==='slot'&&extraUsed){ toast={msg:T.slotFull,t:1.6}; return; }
+  if(!canUse(b.id)){ toast={msg:T.noUse,t:1.6}; return; }
+  if((inv.n[b.id]||0)>0){ inv.n[b.id]--; saveInv(); applyBooster(b.id); return; }
+  if(window.Ads&&Ads.busy) return;
+  rewarded('boost_'+b.id,()=>{ if(state==='play'&&canUse(b.id)) applyBooster(b.id); });   // con anuncio se usa de una vez
 }
 const inRect=(x,y,a,b,w,h)=>x>=a&&x<=a+w&&y>=b&&y<=b+h;
 function tap(x,y){
@@ -673,11 +752,13 @@ function tap(x,y){
   for(const st of stations){
     if(!st.q[0]||st.rise>0) continue;
     for(let j=0;j<3;j++){
-      const t=st.q[0][j]; if(t===null) continue;
+      const t=st.q[0][j]; if(t===null||st.q[0].hide===j) continue;
       const p=frontCell(st,j);
       if(p.x<0||p.x>W) continue;
       if(Math.abs(p.x-x)<CELL/2 && y>p.y-ITEM*0.5 && y<rowBoard(st.row)+20){
-        if(sendToTarget(t,p,ITEM) || sendToSlot(t,p,ITEM)){ st.q[0][j]=null; checkEmpty(st); }
+        const tr=st.q[0];
+        if(sendToTarget(t,p,ITEM)){ tr[j]=null; checkEmpty(st); }
+        else{ const sl=sendToSlot(t,p,ITEM); if(sl){ history.push({slot:sl,st,tr,j}); tr[j]=null; checkEmpty(st); } }
         return;
       }
     }
@@ -739,6 +820,7 @@ function loop(now){
   shownCoins+=(coins-shownCoins)*Math.min(1,dt*8); if(Math.abs(coins-shownCoins)<0.5) shownCoins=coins;
   const prog=total?sorted/total:0; shownProg+=(prog-shownProg)*Math.min(1,dt*6);
   if(toast) toast.t-=dt;
+  if(shuffleFx>0) shuffleFx=Math.max(0,shuffleFx-dt/0.35);
   stations.forEach(st=>{ if(st.rise>0) st.rise=Math.max(0,st.rise-dt/RISE_TIME); });
   for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
   targets.forEach((tg,i)=>{
