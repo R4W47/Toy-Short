@@ -42,9 +42,11 @@ const TGT={w:330,h:330*336/512,y:120};             // cajas destino
 TGT.gap=(W-3*TGT.w)/4;
 const TGT_CELLS=[0.27,0.5,0.73];
 const SLOT={s:186,y:385}; SLOT.gap=(W-5*SLOT.s)/6;  // espacios de espera
-// Estaciones: 3x4. Cada una = bandeja principal + bandeja siguiente pequeña abajo
-const GRID={cols:3, rows:4, top:615, bot:1905};
-GRID.cw=W/GRID.cols; GRID.rh=(GRID.bot-GRID.top)/GRID.rows;
+// Estaciones en 3 columnas que se mueven en bucle (1 y 3 bajan, 2 sube).
+// Cada estación = bandeja principal + bandeja siguiente pequeña abajo
+const COL={n:3, top:600, bot:1910}; COL.w=W/COL.n;
+const PER_COL=7;                                     // estaciones por columna (más que las visibles)
+const STEP=272;                                      // alto de cada estación
 const TRAY={w:330}; TRAY.h=TRAY.w*310/824; TRAY.cell=0.316; TRAY.dy=-0.06; // cell/dy en fracción
 const ITEM=106;                                      // tamaño producto en bandeja principal
 const NEXT_SCALE=0.6;                                // tamaño de la bandeja siguiente
@@ -52,27 +54,56 @@ const RISE_TIME=0.3;
 
 // ---------- Estado ----------
 let level=1; try{ level=+localStorage.getItem('skewer_level')||1; }catch(e){}
-let stations, targets, slots, flying, state;
+let stations, cols, targets, slots, flying, state, speed;
 
 function rnd(n){return Math.floor(Math.random()*n);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 
+const SPEED=45;                                      // velocidad fija de las columnas
+function diff(){
+  const L=level-1;
+  return {
+    types:  Math.min(PRODUCTS.length, 4+Math.floor(L/4)), // +1 producto distinto cada 4 niveles
+    depth:  Math.min(5, 2+Math.floor(L/8)),               // +1 bandeja en cola cada 8 niveles
+    fill:   Math.min(0.9, 0.6+L*0.01),                    // menos espacios vacíos
+    spread: Math.min(1, L*0.04),                          // iguales cada vez más separados
+    helpWait: Math.max(0.25, 0.7-L*0.015),                // las cajas de arriba ayudan menos
+    helpVis:  Math.max(0.35, 0.85-L*0.015)
+  };
+}
+// Separa productos iguales que quedaron en la misma bandeja (k = 0..1)
+function spread(trays,k){
+  const tries=Math.round(trays.length*6*k);
+  for(let n=0;n<tries;n++){
+    const a=trays[rnd(trays.length)], i=rnd(3); if(a[i]===null) continue;
+    const dup=a.some((v,j)=>j!==i&&v===a[i]); if(!dup) continue;
+    const b=trays[rnd(trays.length)], j=rnd(3);
+    if(b===a||b[j]===a[i]||b.some(v=>v===a[i])) continue;
+    [a[i],b[j]]=[b[j],a[i]];
+  }
+}
 function newLevel(){
-  const nTypes=Math.min(PRODUCTS.length, 5+Math.floor(level/2));
-  const depth=Math.min(6, 2+Math.floor(level/2));    // bandejas por estación
-  const cells=GRID.cols*GRID.rows*depth*3;
-  const triples=Math.min(Math.floor(cells/3), Math.round(cells*0.75/3));
+  // Dificultad: sube MUY despacio y solo complica las combinaciones (la velocidad no cambia)
+  const D=diff();
+  const nTypes=D.types, depth=D.depth;
+  const cells=COL.n*PER_COL*depth*3;
+  const triples=Math.round(cells*D.fill/3);
   let bag=[];
   for(let i=0;i<triples;i++){ const t=i%nTypes; bag.push(t,t,t); }
   while(bag.length<cells) bag.push(null);
   shuffle(bag);
   stations=[];
-  for(let s=0;s<GRID.cols*GRID.rows;s++){
+  cols=[]; const allTrays=[];
+  for(let c=0;c<COL.n;c++) cols.push({off:Math.random()*STEP, dir:(c%2===0)?1:-1});
+  for(let s=0;s<COL.n*PER_COL;s++){
     let q=[];
     for(let d=0;d<depth;d++) q.push([bag.pop(),bag.pop(),bag.pop()]);
-    q=q.filter(tr=>tr.some(v=>v!==null));           // sin bandejas vacías
-    stations.push({q, rise:0});
+    allTrays.push(...q);
+    stations.push({q, rise:0, c:s%COL.n, k:Math.floor(s/COL.n)});
   }
+  spread(allTrays, D.spread);
+  stations.forEach(st=>st.q=st.q.filter(tr=>tr.some(v=>v!==null))); // sin bandejas vacías
+  speed=SPEED;
   slots=[null,null,null,null,null];
   targets=[null,null,null];
   flying=[];
@@ -95,8 +126,9 @@ function makeTarget(i){
   const waiting=opts.filter(t=>slots.some(s=>s&&s.t===t));
   const visible=opts.filter(t=>stations.some(st=>st.q[0]&&st.q[0].includes(t)));
   let t;
-  if(waiting.length&&Math.random()<0.6) t=waiting[rnd(waiting.length)];
-  else if(visible.length&&Math.random()<0.75) t=visible[rnd(visible.length)];
+  const D=diff();
+  if(waiting.length&&Math.random()<D.helpWait) t=waiting[rnd(waiting.length)];
+  else if(visible.length&&Math.random()<D.helpVis) t=visible[rnd(visible.length)];
   else t=opts[rnd(opts.length)];
   return {t, fill:[false,false,false], landed:[false,false,false], pop:0};
 }
@@ -105,8 +137,10 @@ function makeTarget(i){
 function tgtPos(i,k){ const x=TGT.gap+i*(TGT.w+TGT.gap); return {x:x+TGT.w*TGT_CELLS[k], y:TGT.y+TGT.h*0.43}; }
 function slotPos(i){ return {x:SLOT.gap+i*(SLOT.s+SLOT.gap)+SLOT.s/2, y:SLOT.y+SLOT.s/2}; }
 function stationBase(s){
-  const c=s%GRID.cols, r=Math.floor(s/GRID.cols);
-  const cx=GRID.cw*c+GRID.cw/2, top=GRID.top+GRID.rh*r;
+  const st=stations[s], col=cols[st.c], loop=STEP*PER_COL;
+  let top=st.k*STEP+col.off;
+  top=((top%loop)+loop)%loop + COL.top - STEP;
+  const cx=COL.w*st.c+COL.w/2;
   const mainY=top+TRAY.h/2+20;
   const nextY=mainY+TRAY.h/2+14+TRAY.h*NEXT_SCALE/2;
   return {cx, mainY, nextY};
@@ -155,13 +189,16 @@ function draw(){
     if(s&&s.landed) drawProduct(s.t,p.x,p.y,128,false);
   });
   // estaciones
+  ctx.save(); ctx.beginPath(); ctx.rect(0,COL.top,W,COL.bot-COL.top); ctx.clip();
   stations.forEach((st,s)=>{
     const b=stationBase(s);
+    if(b.mainY<COL.top-STEP||b.mainY>COL.bot+STEP) return;
     // bandeja siguiente (pequeña); si viene otra detrás, aparece cuando termina la subida
     if(st.rise===0 && st.q[1]) drawTray(st.q[1],{cx:b.cx,cy:b.nextY,sc:NEXT_SCALE},true);
     if(st.rise>0 && st.q[1]){ ctx.save(); ctx.globalAlpha=1-st.rise; drawTray(st.q[1],{cx:b.cx,cy:b.nextY,sc:NEXT_SCALE},true); ctx.restore(); }
     if(st.q[0]) drawTray(st.q[0],mainTray(s),false);
   });
+  ctx.restore();
   // en vuelo
   flying.forEach(f=>{
     const e=f.k<.5?2*f.k*f.k:1-Math.pow(-2*f.k+2,2)/2;
@@ -228,6 +265,7 @@ function tap(x,y){
     for(let j=0;j<3;j++){
       const t=st.q[0][j]; if(t===null) continue;
       const p=cellOf(tr,j);
+      if(p.y<COL.top||p.y>COL.bot) continue;
       if(Math.abs(p.x-x)<TRAY.cell*TRAY.w/2 && Math.abs(p.y-y)<TRAY.h/2+10){
         if(sendToTarget(t,p,ITEM) || sendToSlot(t,p)){ st.q[0][j]=null; checkEmpty(s); }
         return;
@@ -250,6 +288,7 @@ function hideOv(){ ov.style.display='none'; }
 let last=performance.now();
 function loop(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(state==='play') cols.forEach(c=>c.off+=c.dir*speed*dt);
   stations.forEach(st=>{ if(st.rise>0) st.rise=Math.max(0,st.rise-dt/RISE_TIME); });
   for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
   targets.forEach((tg,i)=>{
