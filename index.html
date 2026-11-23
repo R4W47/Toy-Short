@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Skewer Sort</title>
+<title>Toy Sort</title>
 <style>
   html,body{margin:0;height:100%;background:#efe4d6;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
@@ -47,6 +47,19 @@
   .mode-card small{font-size:14px;font-weight:600;opacity:.75}
   .mode-go{margin-top:8px;display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;background:rgba(0,0,0,.15);border-radius:999px;padding:6px 16px}
   .mode-go svg{width:14px;height:14px;fill:currentColor}
+  /* Monedas */
+  .coin{display:inline-block;width:22px;height:22px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b0,#ffc83d 45%,#d98e00);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2)}
+  .coinimg .coin{border-radius:0;box-shadow:none;background:url("assets/coin.webp") center/contain no-repeat}
+  .btn .coin{width:20px;height:20px}
+  .btn .tag{display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.15);border-radius:999px;padding:2px 10px 2px 4px;margin-left:2px}
+  .btn svg.ad{width:20px;height:20px}
+  .btn[disabled]{opacity:.45;pointer-events:none}
+  .btn[hidden]{display:none}
+  .reward{display:flex;align-items:center;justify-content:center;gap:8px;font-size:30px;font-weight:700;color:var(--gold)}
+  .reward .coin{width:34px;height:34px}
+  .reward.pop{animation:pop .4s cubic-bezier(.2,1.6,.4,1)}
+  .small{font-size:14px!important}
+  @keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
   @keyframes panelIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
 </style>
@@ -58,6 +71,7 @@
   <div class="home-inner">
     <div class="home-top">
       <div class="chip"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg><span id="homeLevel">1</span></div>
+      <div class="chip"><span class="coin"></span><span id="homeCoins">0</span></div>
     </div>
     <div class="logo" aria-hidden="true">
       <img class="tray" src="assets/bandeja.png" alt="">
@@ -83,6 +97,8 @@
     <h2 id="winTitle"></h2>
     <div class="toys" id="winToys"></div>
     <p id="winText"></p>
+    <div class="reward" id="winReward"><span class="coin"></span><span id="winCoins">+0</span></div>
+    <button class="btn primary" id="winDouble" type="button"><svg class="ad" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM10 9v6l5-3z" fill-rule="evenodd"/></svg><span id="winDoubleLabel"></span></button>
     <button class="btn green" id="winNext" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="winNextLabel"></span></button>
     <button class="btn ghosty" id="winMenu" type="button"></button>
   </div>
@@ -93,20 +109,30 @@
   <div class="panel">
     <h2 id="overTitle"></h2>
     <p id="overText"></p>
-    <button class="btn primary" id="overRetry" type="button"></button>
+    <button class="btn green" id="overAd" type="button"><svg class="ad" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM10 9v6l5-3z" fill-rule="evenodd"/></svg><span id="overAdLabel"></span></button>
+    <button class="btn primary" id="overPay" type="button"><span id="overPayLabel"></span><span class="tag"><span class="coin"></span><span id="overPayCost"></span></span></button>
+    <p class="small" id="overLeft"></p>
+    <button class="btn ghosty" id="overRetry" type="button"></button>
     <button class="btn ghosty" id="overMenu" type="button"></button>
   </div>
 </div>
+<script src="ads.js"></script>
 <script>
 // ---------- Idioma ----------
 const LANG = (navigator.language||'en').toLowerCase().startsWith('es') ? 'es' : 'en';
 const T = {
   en:{level:'Level', play:'Play', zone:'Play', sub:'Sort the toys!', tagline:'Match 3 toys and fill the boxes',
       win:'Level complete!', winText:n=>'Level '+n+' cleared', next:'Next level',
-      lose:'Out of space!', loseText:'The plates are full. Try again!', retry:'Try again', menu:'Main menu'},
+      lose:'Out of space!', loseText:'The plates are full. Try again!', retry:'Try again', menu:'Main menu',
+      double:'x2 with an ad', doubled:'Coins doubled!', loseRevive:'Clear the plates and keep going?',
+      reviveAd:'Watch ad & clear plates', revivePay:'Clear plates', revLeft:n=>n===1?'1 revive left this level':n+' revives left this level',
+      noCoins:'Not enough coins'},
   es:{level:'Nivel', play:'Jugar', zone:'Jugar', sub:'¡Ordena los juguetes!', tagline:'Junta 3 juguetes iguales y llena las cajas',
       win:'¡Nivel superado!', winText:n=>'Nivel '+n+' completado', next:'Siguiente nivel',
-      lose:'¡Sin espacio!', loseText:'Los platos se llenaron. ¡Inténtalo otra vez!', retry:'Reintentar', menu:'Menú principal'}
+      lose:'¡Sin espacio!', loseText:'Los platos se llenaron. ¡Inténtalo otra vez!', retry:'Reintentar', menu:'Menú principal',
+      double:'x2 viendo un anuncio', doubled:'¡Monedas duplicadas!', loseRevive:'¿Vaciar los platos y seguir?',
+      reviveAd:'Ver anuncio y vaciar platos', revivePay:'Vaciar platos', revLeft:n=>n===1?'Te queda 1 revivida en este nivel':'Te quedan '+n+' revividas en este nivel',
+      noCoins:'No te alcanzan las monedas'}
 }[LANG];
 
 // ---------- Productos (juguetes) ----------
@@ -115,9 +141,21 @@ const PRODUCTS = ['osito','robot','muneca','carro','unicornio','aros','dino','cu
 
 // ---------- Recursos ----------
 const IMG = {};
-['fondo.jpg','destino.png','plato.png','bandeja.png'].forEach(n=>{
+['fondo.jpg','destino.png','plato.png','bandeja.png','coin.webp'].forEach(n=>{
   const i=new Image(); i.src='assets/'+n; IMG[n.split('.')[0]]=i;
 });
+IMG.coin.onload=()=>document.body.classList.add('coinimg');   // si no está coin.webp, se usa la moneda dibujada
+
+// ---------- Monedas ----------
+const REVIVE_COST=50, MAX_REVIVES=2;
+const AD_FROM_LEVEL=3, AD_EVERY=3;                   // pantalla completa: desde el nivel 3, cada 3 niveles
+let coins=0;   try{ coins=+localStorage.getItem('toysort_coins')||0; }catch(e){}
+let adCount=0; try{ adCount=+localStorage.getItem('toysort_adcount')||0; }catch(e){}
+let shownCoins=coins, revives=0, winGain=0, winDoubled=false;
+function coinsFor(n){ return 10+Math.floor((n-1)/4)*2; }       // más monedas en niveles altos
+function addCoins(n){ coins+=n; try{localStorage.setItem('toysort_coins',coins);}catch(e){} updateCoinUI(); }
+function spendCoins(n){ if(coins<n) return false; addCoins(-n); return true; }
+function updateCoinUI(){ const h=document.getElementById('homeCoins'); if(h) h.textContent=coins; }
 
 // ---------- Layout (lienzo lógico 1080x1920) ----------
 const W=1080, H=1920;
@@ -192,6 +230,7 @@ function newLevel(){
   slots=[null,null,null,null,null];
   targets=[null,null,null];
   flying=[];
+  revives=0;
   state='play';
   for(let i=0;i<3;i++) targets[i]=makeTarget(i);
   hideAll();
@@ -254,10 +293,27 @@ function drawTray(items,tr,dim){
   ctx.restore();
 }
 
+// chip de monedas arriba a la derecha (dentro del lienzo)
+function drawCoinChip(){
+  const txt=String(Math.round(shownCoins));
+  ctx.save();
+  ctx.font='700 40px Fredoka,system-ui,sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  const w=Math.max(150,ctx.measureText(txt).width+104), h=64, x=W-30-w, y=30;
+  ctx.fillStyle='rgba(13,34,48,.82)'; ctx.beginPath(); ctx.roundRect(x,y,w,h,h/2); ctx.fill();
+  const cx=x+36, cy=y+h/2, r=24, ci=IMG.coin;
+  if(ci.complete&&ci.naturalWidth) ctx.drawImage(ci,cx-r,cy-r,2*r,2*r);
+  else{
+    const g=ctx.createRadialGradient(cx-8,cy-8,2,cx,cy,r); g.addColorStop(0,'#fff3b0'); g.addColorStop(.5,'#ffc83d'); g.addColorStop(1,'#d98e00');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle='#f6f0e1'; ctx.fillText(txt,x+72,cy+2);
+  ctx.restore();
+}
 function draw(){
   img('fondo',0,0,W,H);
   ctx.font='700 46px Fredoka,system-ui,sans-serif'; ctx.fillStyle='#5a3a22'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(T.level+' '+level, W/2, 62);
+  drawCoinChip();
   // cajas destino
   targets.forEach((tg,i)=>{
     const x=TGT.gap+i*(TGT.w+TGT.gap);
@@ -318,7 +374,43 @@ function checkLose(){
   if(targets.some(tg=>tg&&tg.pop>0)) return;
   const canSlot=slots.some(s=>fits(s.t));
   const canTray=stations.some(st=>st.rise===0&&st.q[0]&&st.q[0].some(t=>t!==null&&fits(t)));
-  if(!canSlot&&!canTray){ state='lose'; show('over'); }
+  if(!canSlot&&!canTray){ state='lose'; showLose(); }
+}
+// Revivir: los juguetes de los platos vuelven al final de las columnas (no se pierden, el nivel sigue completable)
+function revive(){
+  const items=slots.filter(Boolean).map(s=>s.t);
+  const starts=slots.map((s,i)=>s?slotPos(i):null).filter(Boolean);
+  slots=[null,null,null,null,null];
+  const trays=[]; for(let i=0;i<items.length;i+=3){ const tr=items.slice(i,i+3); while(tr.length<3) tr.push(null); trays.push(shuffle(tr)); }
+  trays.forEach(tr=>{
+    const minQ=Math.min(...stations.map(st=>st.q.length));
+    const pick=stations.filter(st=>st.q.length===minQ);
+    const st=pick[rnd(pick.length)];
+    if(!st.q.length) st.rise=1;                     // estación vacía: la bandeja aparece subiendo
+    st.q.push(tr);
+  });
+  // efecto: los juguetes salen volando hacia abajo
+  starts.forEach((p,i)=>fly(items[i],p,{x:p.x,y:H+150},128,90,()=>{}));
+  revives++;
+  state='play'; hideAll();
+}
+function showLose(){
+  const left=MAX_REVIVES-revives, can=left>0;
+  $('overText').textContent=can?T.loseRevive:T.loseText;
+  $('overAd').hidden=!can; $('overPay').hidden=!can; $('overLeft').hidden=!can;
+  $('overPay').disabled=coins<REVIVE_COST;
+  $('overPayCost').textContent=REVIVE_COST;
+  $('overLeft').textContent=coins<REVIVE_COST?T.noCoins+' · '+T.revLeft(left):T.revLeft(left);
+  $('overRetry').className='btn '+(can?'ghosty':'primary');
+  show('over');
+}
+function showWin(){
+  winGain=coinsFor(level-1); winDoubled=false;
+  addCoins(winGain);
+  $('winText').textContent=T.winText(level-1);
+  $('winCoins').textContent='+'+winGain;
+  $('winDouble').hidden=false; $('winDouble').disabled=false;
+  show('win');
 }
 function pullFromSlots(){
   slots.forEach((s,i)=>{
@@ -345,7 +437,7 @@ function checkWin(){
   const left=stations.some(st=>st.q.length) || slots.some(Boolean) || flying.length;
   if(!left && targets.every(t=>!t||t.pop===0)){
     state='win'; level++; try{localStorage.setItem('skewer_level',level);}catch(e){}
-    document.getElementById('winText').textContent=T.winText(level-1); show('win');
+    showWin();
   }
 }
 function checkEmpty(s){
@@ -382,22 +474,44 @@ cv.addEventListener('pointerdown',e=>{
 const $=id=>document.getElementById(id);
 function hideAll(){ ['home','win','over'].forEach(id=>$(id).hidden=true); }
 function show(id){ hideAll(); $(id).hidden=false; }
-function goMenu(){ state='menu'; $('homeLevel').textContent=T.level+' '+level; $('playLabel').textContent=T.level+' '+level; show('home'); }
+function goMenu(){ state='menu'; $('homeLevel').textContent=T.level+' '+level; $('playLabel').textContent=T.level+' '+level; updateCoinUI(); show('home'); }
+// Pantalla completa solo entre niveles (nunca a mitad de nivel). Si acaba de ver un anuncio con recompensa, se salta esta vez.
+function nextLevel(){
+  const done=level-1;                                // nivel recién superado
+  adCount++; try{localStorage.setItem('toysort_adcount',adCount);}catch(e){}
+  if(done>=AD_FROM_LEVEL && adCount>=AD_EVERY && !winDoubled){
+    adCount=0; try{localStorage.setItem('toysort_adcount',0);}catch(e){}
+    window.Ads ? Ads.showInterstitial(newLevel) : newLevel();
+  } else newLevel();
+}
+function rewarded(placement,onOk){ if(window.Ads) Ads.showRewarded(placement,onOk,()=>{}); else onOk(); }
 // textos
 $('tagline').textContent=T.tagline; $('playZone').textContent=T.zone;
 $('playTitle').textContent=T.play; $('playSub').textContent=T.sub;
 $('winTitle').textContent=T.win; $('winNextLabel').textContent=T.next; $('winMenu').textContent=T.menu;
 $('overTitle').textContent=T.lose; $('overText').textContent=T.loseText; $('overRetry').textContent=T.retry; $('overMenu').textContent=T.menu;
+$('winDoubleLabel').textContent=T.double; $('overAdLabel').textContent=T.reviveAd; $('overPayLabel').textContent=T.revivePay;
 $('winToys').innerHTML=['osito','unicornio','robot'].map(n=>'<img src="assets/'+n+'.png" alt="">').join('');
 // botones
-$('playBtn').onclick=newLevel; $('winNext').onclick=newLevel; $('overRetry').onclick=newLevel;
+$('playBtn').onclick=newLevel; $('winNext').onclick=nextLevel; $('overRetry').onclick=newLevel;
 $('winMenu').onclick=goMenu; $('overMenu').onclick=goMenu;
+$('winDouble').onclick=()=>rewarded('double',()=>{
+  if(winDoubled) return;
+  winDoubled=true; addCoins(winGain);
+  $('winCoins').textContent='+'+(winGain*2)+' · '+T.doubled;
+  const r=$('winReward'); r.classList.remove('pop'); void r.offsetWidth; r.classList.add('pop');
+  $('winDouble').hidden=true;
+});
+$('overAd').onclick=()=>{ if(state==='lose'&&revives<MAX_REVIVES) rewarded('revive',()=>{ if(state==='lose') revive(); }); };
+$('overPay').onclick=()=>{ if(state==='lose'&&revives<MAX_REVIVES&&spendCoins(REVIVE_COST)) revive(); };
+updateCoinUI();
 
 // ---------- Bucle ----------
 let last=performance.now();
 function loop(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
   if(state==='play') cols.forEach(c=>c.off+=c.dir*speed*dt);
+  shownCoins+=(coins-shownCoins)*Math.min(1,dt*8); if(Math.abs(coins-shownCoins)<0.5) shownCoins=coins;
   stations.forEach(st=>{ if(st.rise>0) st.rise=Math.max(0,st.rise-dt/RISE_TIME); });
   for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
   targets.forEach((tg,i)=>{
