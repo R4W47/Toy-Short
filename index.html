@@ -308,7 +308,7 @@ function sendToTarget(t,from,s0){
 function sendToSlot(t,from){
   const i=slots.indexOf(null); if(i<0) return false;
   const s={t,landed:false}; slots[i]=s;
-  fly(t,from,slotPos(i),ITEM,128,()=>{ s.landed=true; });
+  fly(t,from,slotPos(i),ITEM,128,()=>{ s.landed=true; pullFromSlots(); }); // si ya hay caja que calce, sube de una vez
   return true;
 }
 function fits(t){ return targets.some(tg=>tg&&tg.t===t&&tg.pop===0&&tg.fill.includes(false)); }
@@ -325,6 +325,20 @@ function pullFromSlots(){
     if(!s||!s.landed) return;
     if(sendToTarget(s.t,slotPos(i),128)) slots[i]=null;
   });
+}
+// Revisión de respaldo (corre al final de cada movimiento / cuadro): evita niveles imposibles
+function backupCheck(){
+  if(state!=='play') return;
+  // 1) cajas vacías: si quedan juguetes de un tipo sin caja, abrir una para ese tipo
+  targets.forEach((tg,i)=>{ if(!tg){ const n=makeTarget(i); if(n){ targets[i]=n; } } });
+  // 2) caja que pide un juguete que ya no alcanza para llenarla: cambiarla
+  targets.forEach((tg,i)=>{
+    if(!tg||tg.pop>0) return;
+    const free=tg.fill.filter(f=>!f).length;
+    if(free===3 && remainingOf(tg.t)<3){ targets[i]=makeTarget(i); }   // solo si aún está vacía
+  });
+  // 3) subir a las cajas los juguetes en espera que calcen
+  pullFromSlots();
 }
 function checkWin(){
   if(state!=='play') return;
@@ -387,8 +401,9 @@ function loop(now){
   stations.forEach(st=>{ if(st.rise>0) st.rise=Math.max(0,st.rise-dt/RISE_TIME); });
   for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
   targets.forEach((tg,i)=>{
-    if(tg&&tg.pop>0){ tg.pop+=dt/0.4; if(tg.pop>=1){ targets[i]=makeTarget(i); pullFromSlots(); } }
+    if(tg&&tg.pop>0){ tg.pop+=dt/0.4; if(tg.pop>=1){ targets[i]=makeTarget(i); pullFromSlots(); } } // caja nueva: revisar espera
   });
+  backupCheck();
   checkLose(); checkWin();
   draw();
   requestAnimationFrame(loop);
