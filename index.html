@@ -26,15 +26,13 @@ const T = {
 }[LANG];
 
 // ---------- Productos (reemplazar emoji por PNG cuando estén listos: poner img:'assets/cereza.png') ----------
-const PRODUCTS = [
-  {e:'🍒'},{e:'🍩'},{e:'🍌'},{e:'🌭'},{e:'🍇'},{e:'🍊'},
-  {e:'🧁'},{e:'🍓'},{e:'🫐'},{e:'🍤'},{e:'🍉'},{e:'🍡'}
-];
+const PRODUCTS = ['cereza','dona','banano','salchicha','uva','naranja','cupcake','fresa','ciruela','camaron','sandia','malvavisco']
+  .map(n=>({e:'?', img:'assets/'+n+'.png'}));
 PRODUCTS.forEach(p=>{ if(p.img){ p.im=new Image(); p.im.src=p.img; } });
 
 // ---------- Recursos ----------
 const IMG = {};
-['fondo.jpg','caja.png','destino.png','plato.png','riel.png'].forEach(n=>{
+['fondo.jpg','destino.png','plato.png','bandeja.png'].forEach(n=>{
   const i=new Image(); i.src='assets/'+n; IMG[n.split('.')[0]]=i;
 });
 
@@ -45,11 +43,10 @@ const TGT={w:330,h:330*336/512,y:120};            // cajas destino
 TGT.gap=(W-3*TGT.w)/4;
 const SLOT={s:186,y:385}; SLOT.gap=(W-5*SLOT.s)/6; // espacios de espera
 const COL={top:610,bot:1905,w:W/4};                // columnas
-const TRAY={len:540}; TRAY.wid=TRAY.len*263/640; TRAY.step=TRAY.len+50;
-const ITEM=148;                                     // tamaño producto en bandeja
-const TRAYS_PER_COL=5;
+const TRAY={w:262}; TRAY.h=TRAY.w*310/824; TRAY.step=TRAY.h+18; TRAY.cell=TRAY.w*0.316; TRAY.dy=-TRAY.h*0.06;
+const ITEM=86;                                     // tamaño producto en bandeja
+const TRAYS_PER_COL=12;
 const TGT_CELLS=[0.27,0.5,0.73];                    // centros de compartimentos (fracción del ancho)
-const TRAY_CELLS=[-0.31,0,0.31];                    // centros a lo largo de la bandeja (fracción del largo)
 
 // ---------- Estado ----------
 let level=1; try{ level=+localStorage.getItem('skewer_level')||1; }catch(e){}
@@ -60,10 +57,11 @@ function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[
 
 function newLevel(){
   const nTypes=Math.min(PRODUCTS.length, 5+Math.floor(level/2));
-  const totalItems=4*TRAYS_PER_COL*3;               // 60
-  const triples=totalItems/3;
+  const cells=4*TRAYS_PER_COL*3;                    // 144 espacios
+  const triples=Math.min(cells/3, 30+level*3);
   let bag=[];
   for(let i=0;i<triples;i++){ const t=i%nTypes; bag.push(t,t,t); }
+  while(bag.length<cells) bag.push(null);            // espacios vacíos
   shuffle(bag);
   cols=[];
   for(let c=0;c<4;c++){
@@ -105,9 +103,9 @@ function trayY(col,k){
   const loop=TRAY.step*TRAYS_PER_COL;
   let y=COL.top + k*TRAY.step + col.off;
   y=((y-COL.top)%loop+loop)%loop + COL.top - TRAY.step;
-  return y + TRAY.len/2;                            // centro
+  return y + TRAY.h/2;                              // centro
 }
-function cellPos(c,k,j){ return {x:COL.w*c+COL.w/2, y:trayY(cols[c],k)+TRAY.len*TRAY_CELLS[j]}; }
+function cellPos(c,k,j){ return {x:COL.w*c+COL.w/2+(j-1)*TRAY.cell, y:trayY(cols[c],k)+TRAY.dy}; }
 
 // ---------- Dibujo ----------
 function drawProduct(t,x,y,size,silhouette){
@@ -121,6 +119,8 @@ function drawProduct(t,x,y,size,silhouette){
   }
   ctx.restore();
 }
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawTray(cx,cy){ img('bandeja',cx-TRAY.w/2,cy-TRAY.h/2,TRAY.w,TRAY.h); }
 function img(name,x,y,w,h){ const i=IMG[name]; if(i.complete&&i.naturalWidth) ctx.drawImage(i,x,y,w,h); }
 
 function draw(){
@@ -147,13 +147,10 @@ function draw(){
   ctx.save(); ctx.beginPath(); ctx.rect(0,COL.top,W,COL.bot-COL.top); ctx.clip();
   cols.forEach((col,c)=>{
     const cx=COL.w*c+COL.w/2;
-    img('riel',cx-112,COL.top-20,224,COL.bot-COL.top+40);
     col.trays.forEach((tr,k)=>{
       const cy=trayY(col,k);
-      if(cy<COL.top-TRAY.len||cy>COL.bot+TRAY.len) return;
-      ctx.save(); ctx.translate(cx,cy); ctx.rotate(Math.PI/2);
-      const i=IMG.caja; if(i.complete&&i.naturalWidth) ctx.drawImage(i,-TRAY.len/2,-TRAY.wid/2,TRAY.len,TRAY.wid);
-      ctx.restore();
+      if(cy<COL.top-TRAY.h||cy>COL.bot+TRAY.h) return;
+      drawTray(cx,cy);
       tr.forEach((t,j)=>{ if(t!==null){ const p=cellPos(c,k,j); drawProduct(t,p.x,p.y,ITEM,false); } });
     });
   });
@@ -217,7 +214,7 @@ function tap(x,y){
   for(let k=0;k<col.trays.length;k++) for(let j=0;j<3;j++){
     const t=col.trays[k][j]; if(t===null) continue;
     const p=cellPos(c,k,j);
-    if(Math.abs(p.x-x)<COL.w/2 && Math.abs(p.y-y)<ITEM*0.55){
+    if(Math.abs(p.x-x)<TRAY.cell/2 && Math.abs(p.y-y)<TRAY.h/2+6){
       if(sendToTarget(t,p,ITEM) || sendToSlot(t,p)) col.trays[k][j]=null;
       return;
     }
