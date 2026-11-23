@@ -786,6 +786,14 @@ function nextLevel(){
   } else newLevel();
 }
 function rewarded(placement,onOk){ if(window.Ads) Ads.showRewarded(placement,onOk,()=>{}); else onOk(); }
+// Android: botón atrás (true = lo manejó el juego; false = Android pregunta si salir) y app en segundo plano
+window.__androidBack=()=>{
+  if(state==='play'){ state='pause'; show('pause'); return true; }
+  if(state==='pause'){ state='play'; hideAll(); return true; }
+  if(state==='win'||state==='lose'){ goMenu(); return true; }
+  return false;
+};
+window.__androidPause=()=>{ if(state==='play'){ state='pause'; show('pause'); } };
 // las filas se detienen mientras se ve un anuncio
 if(window.Ads){ Ads.onPause=()=>{adPaused=true;}; Ads.onResume=()=>{adPaused=false;}; }
 // textos
