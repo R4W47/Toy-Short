@@ -1,305 +1,253 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Skewer Sort – Prototype</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Skewer Sort</title>
 <style>
-  :root{--bg1:#ffe9c7;--bg2:#ffb88a;--wood:#d39a5c;--wood2:#8a5a2b;--ink:#4a2c14;--accent:#ff6b4a}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink)}
-  body{background:linear-gradient(170deg,var(--bg1),var(--bg2));display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:manipulation}
-  .wrap{width:100%;max-width:480px;height:100%;display:flex;flex-direction:column}
-  header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px 4px}
-  .pill{background:#fff9;border-radius:999px;padding:5px 12px;font-weight:800;font-size:15px}
-  /* orders */
-  #orders{display:flex;gap:8px;padding:6px 10px;justify-content:center}
-  .order{flex:1;max-width:140px;height:62px;border-radius:12px;background:linear-gradient(#e8b273,#c98745);border:3px solid var(--wood2);display:flex;align-items:center;justify-content:space-around;padding:0 4px;box-shadow:0 4px 0 #0003;transition:transform .3s,opacity .3s}
-  .order.empty{opacity:.25}
-  .order.closing{transform:scale(1.12) translateY(-10px);opacity:0}
-  .order.opening{animation:pop .35s}
-  .oslot{width:34px;height:40px;border-radius:8px;background:#0002;display:flex;align-items:center;justify-content:center;font-size:28px}
-  .oslot.shadow span{filter:blur(1.4px) grayscale(.35) brightness(1.1);opacity:.5}
-  .oslot.hide span{visibility:hidden}
-  /* buffer */
-  #buffer{display:flex;gap:6px;justify-content:center;padding:8px 10px}
-  .bslot{width:50px;height:50px;border-radius:12px;background:#fff6;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:30px}
-  .bslot.extra{border-color:var(--accent)}
-  .bslot.hide span{visibility:hidden}
-  #buffer.warn .bslot{border-color:#ff3b30;animation:shake .3s}
-  /* board */
-  #board{flex:1;display:flex;gap:6px;padding:6px 8px;min-height:0}
-  .col{flex:1;position:relative;overflow:hidden;border-radius:12px;background:#0000001a}
-  .col::after{content:attr(data-arrow);position:absolute;bottom:2px;right:4px;font-size:11px;opacity:.4}
-  .crate{position:absolute;left:3px;right:3px;will-change:transform}
-  .crate .back{position:absolute;top:45%;left:9%;right:9%;bottom:0;border-radius:9px;background:linear-gradient(#c48a52,#a06a36);border:2px solid var(--wood2);display:flex;align-items:flex-end;justify-content:space-around;padding:0 2px 1px;pointer-events:none}
-  .crate .back span{font-size:var(--pb,16px);line-height:1.15;opacity:.85}
-  .crate .back b{position:absolute;right:3px;top:1px;font-size:10px;color:#fff;font-weight:900}
-  .crate .front{position:absolute;top:0;left:0;right:0;bottom:var(--fb,0px);border-radius:10px;background:linear-gradient(#f3c98f,#d9a062);border:2px solid var(--wood2);display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;padding:2px}
-  .crate:not(.stacked) .front{bottom:0}
-  .crate .front.rise{animation:rise .35s ease-out}
-  @keyframes rise{0%{transform:translateY(25%) scale(.8);filter:brightness(.7)}100%{transform:none;filter:none}}
-  .crate .prod:nth-child(3){grid-column:1 / span 2}
-  .crate.emptyc .front{opacity:.45}
-  .prod{min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;font-size:var(--pf,22px);line-height:1;overflow:visible;cursor:pointer}
-  .prod.gone{visibility:hidden;pointer-events:none}
-  footer{display:flex;justify-content:space-around;padding:8px 10px calc(12px + env(safe-area-inset-bottom))}
-  .btn{border:none;border-radius:16px;background:#fff;color:var(--ink);font-size:13px;font-weight:800;padding:8px 10px;min-width:84px;box-shadow:0 4px 0 #0002;display:flex;flex-direction:column;align-items:center;gap:1px}
-  .btn .i{font-size:20px}
-  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #0002}
-  .btn:disabled{opacity:.4}
-  .fly{position:fixed;z-index:20;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:28px;transition:transform .32s cubic-bezier(.3,.7,.4,1)}
-  #overlay{position:fixed;inset:0;background:#0006;display:none;align-items:center;justify-content:center;z-index:30}
-  #overlay.show{display:flex}
-  .card{background:#fff;border-radius:22px;padding:22px 24px;text-align:center;width:min(86vw,320px);animation:pop .35s}
-  .card h2{margin:4px 0 8px;font-size:24px}
-  .card .big{font-size:52px}
-  .card button{margin:10px 4px 0;border:none;background:var(--accent);color:#fff;font-size:17px;font-weight:800;padding:11px 20px;border-radius:14px;box-shadow:0 4px 0 #b53c22}
-  .card button.alt{background:#3bb273;box-shadow:0 4px 0 #23804f}
-  @keyframes pop{0%{transform:scale(.5)}70%{transform:scale(1.1)}100%{transform:scale(1)}}
-  @keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+  html,body{margin:0;height:100%;background:#efe4d6;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{display:block;height:100%;max-width:100%;object-fit:contain}
+  #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(60,40,30,.45);font-family:system-ui,sans-serif}
+  #ov .card{background:#fff8ee;border:5px solid #5a3a22;border-radius:28px;padding:28px 36px;text-align:center;min-width:240px}
+  #ov h2{margin:0 0 18px;font-size:30px;color:#5a3a22}
+  #ov button{font-size:22px;font-weight:700;padding:14px 34px;border:4px solid #5a3a22;border-radius:18px;background:#ff9a3c;color:#fff;cursor:pointer}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="pill" id="lvl">Level 1</div>
-    <div class="pill" id="left">0</div>
-    <div class="pill">🪙 <span id="coins">0</span></div>
-  </header>
-  <div id="orders"></div>
-  <div id="buffer"></div>
-  <div id="board"></div>
-  <footer>
-    <button class="btn" id="bFreeze"><span class="i">❄️</span><span id="tFreeze">Freeze</span></button>
-    <button class="btn" id="bSlot"><span class="i">➕</span><span id="tSlot">+1 slot</span></button>
-    <button class="btn" id="bRestart"><span class="i">🔄</span><span id="tRestart">Restart</span></button>
-  </footer>
-</div>
-<div id="overlay"><div class="card"><div class="big" id="ovIcon">🎉</div><h2 id="ovTitle"></h2><div id="ovText"></div><div id="ovBtns"></div></div></div>
-
+<div id="wrap"><canvas id="c" width="1080" height="1920"></canvas></div>
+<div id="ov"><div class="card"><h2 id="ovT"></h2><button id="ovB"></button></div></div>
 <script>
-// ---------- i18n (auto-detect phone language) ----------
-const LANG=(navigator.language||'en').toLowerCase().startsWith('es')?'es':'en';
-const T={
-  en:{level:'Level',left:'left',freeze:'Freeze',slot:'+1 slot',restart:'Restart',win:'Level complete!',next:'Next',coins:'+{n} coins',lose:'No space left!',loseTxt:'The holding area is full.',retry:'Retry',cont:'+1 slot & continue'},
-  es:{level:'Nivel',left:'quedan',freeze:'Congelar',slot:'+1 espacio',restart:'Reiniciar',win:'¡Nivel completado!',next:'Siguiente',coins:'+{n} monedas',lose:'¡Sin espacio!',loseTxt:'Se llenó la zona de espera.',retry:'Reintentar',cont:'+1 espacio y seguir'}
+// ---------- Idioma ----------
+const LANG = (navigator.language||'en').toLowerCase().startsWith('es') ? 'es' : 'en';
+const T = {
+  en:{level:'Level', win:'Level complete!', lose:'Out of space!', next:'Next', retry:'Retry'},
+  es:{level:'Nivel', win:'¡Nivel completado!', lose:'¡Sin espacio!', next:'Siguiente', retry:'Reintentar'}
 }[LANG];
-document.documentElement.lang=LANG;
-const $=id=>document.getElementById(id);
-$('tFreeze').textContent=T.freeze;$('tSlot').textContent=T.slot;$('tRestart').textContent=T.restart;
 
-const store={get(k,d){try{const v=localStorage.getItem('ss_'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},
-             set(k,v){try{localStorage.setItem('ss_'+k,JSON.stringify(v))}catch(e){}}};
+// ---------- Productos (reemplazar emoji por PNG cuando estén listos: poner img:'assets/cereza.png') ----------
+const PRODUCTS = [
+  {e:'🍒'},{e:'🍩'},{e:'🍌'},{e:'🌭'},{e:'🍇'},{e:'🍊'},
+  {e:'🧁'},{e:'🍓'},{e:'🫐'},{e:'🍤'},{e:'🍉'},{e:'🍡'}
+];
+PRODUCTS.forEach(p=>{ if(p.img){ p.im=new Image(); p.im.src=p.img; } });
 
-// ---------- config ----------
-const FOODS=['🍓','🍇','🍋','🍄','🧅','🍅','🌽','🥩','🍤','🫑','🥝','🍍','🧀','🍩','🥕','🍒'];
-const COLS=4, VISIBLE=5, LOOP=6, PER=3, ORDERS=3, BUF=5;
+// ---------- Recursos ----------
+const IMG = {};
+['fondo.jpg','caja.png','destino.png','plato.png','riel.png'].forEach(n=>{
+  const i=new Image(); i.src='assets/'+n; IMG[n.split('.')[0]]=i;
+});
 
-let level=store.get('level',1), coins=store.get('coins',0);
-let cols, orders, buffer, offsets, speed, crateH, frozenUntil=0, busy=0, over=false, slotUsed=false, freezeUsed=false, lastT=0;
+// ---------- Layout (lienzo lógico 1080x1920) ----------
+const W=1080, H=1920;
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const TGT={w:330,h:330*336/512,y:120};            // cajas destino
+TGT.gap=(W-3*TGT.w)/4;
+const SLOT={s:186,y:385}; SLOT.gap=(W-5*SLOT.s)/6; // espacios de espera
+const COL={top:610,bot:1905,w:W/4};                // columnas
+const TRAY={len:540}; TRAY.wid=TRAY.len*263/640; TRAY.step=TRAY.len+50;
+const ITEM=148;                                     // tamaño producto en bandeja
+const TRAYS_PER_COL=5;
+const TGT_CELLS=[0.27,0.5,0.73];                    // centros de compartimentos (fracción del ancho)
+const TRAY_CELLS=[-0.31,0,0.31];                    // centros a lo largo de la bandeja (fracción del largo)
 
-// ---------- level generation (procedural) ----------
-function genLevel(lv){
-  const nTypes=Math.min(5+lv,FOODS.length);
-  const pool=FOODS.slice().sort(()=>Math.random()-.5).slice(0,nTypes);
-  // how many layers (boxes stacked behind) each crate has
-  const p1=Math.min(.3+lv*.06,.85), p2=lv>=4?Math.min((lv-3)*.08,.5):0;
-  const layersOf=[];for(let i=0;i<COLS*LOOP;i++)layersOf.push(1+(Math.random()<p1?1:0)+(Math.random()<p2?1:0));
-  const triples=layersOf.reduce((a,b)=>a+b,0);
-  const bag=[];
-  for(let i=0;i<triples;i++){const t=pool[i%nTypes];bag.push(t,t,t)}
-  for(let i=bag.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[bag[i],bag[j]]=[bag[j],bag[i]]}
-  cols=[];let k=0;
-  let q=0;for(let c=0;c<COLS;c++){const col=[];for(let i=0;i<LOOP;i++){const L=[];for(let n=0;n<layersOf[q];n++)L.push([bag[k++],bag[k++],bag[k++]]);q++;col.push(L)}cols.push(col)}
-  buffer=new Array(BUF).fill(null);
-  orders=[];
-  for(let i=0;i<ORDERS;i++)orders.push(newOrder());
-  offsets=cols.map(()=>Math.random()*100);
-  speed=Math.min(14+lv*3,55);
+// ---------- Estado ----------
+let level=1; try{ level=+localStorage.getItem('skewer_level')||1; }catch(e){}
+let cols, targets, slots, queue, flying, state, speed;
+
+function rnd(n){return Math.floor(Math.random()*n);}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function newLevel(){
+  const nTypes=Math.min(PRODUCTS.length, 5+Math.floor(level/2));
+  const totalItems=4*TRAYS_PER_COL*3;               // 60
+  const triples=totalItems/3;
+  let bag=[];
+  for(let i=0;i<triples;i++){ const t=i%nTypes; bag.push(t,t,t); }
+  shuffle(bag);
+  cols=[];
+  for(let c=0;c<4;c++){
+    const trays=[];
+    for(let k=0;k<TRAYS_PER_COL;k++) trays.push([bag.pop(),bag.pop(),bag.pop()]);
+    cols.push({trays, off:Math.random()*TRAY.step, dir:(c%2===0)?1:-1});
+  }
+  speed=55+level*6;
+  slots=[null,null,null,null,null];
+  targets=[null,null,null];
+  flying=[];
+  state='play';
+  for(let i=0;i<3;i++) targets[i]=makeTarget(i);
+  hideOv();
 }
-function counts(){const m={};cols.forEach(col=>col.forEach(cr=>cr.forEach(L=>L.forEach(t=>{if(t)m[t]=(m[t]||0)+1}))));buffer.forEach(x=>{const t=x&&(x.t||x);if(t)m[t]=(m[t]||0)+1});return m}
-function newOrder(){
-  const m=counts(), active=new Set(orders.filter(Boolean).map(o=>o.t));
-  const cand=Object.keys(m).filter(t=>!active.has(t));
-  if(!cand.length)return null;
-  // prefer something already waiting in the holding area (helps the player)
-  const inBuf=cand.filter(t=>buffer.includes(t));
-  let t;
-  if(inBuf.length&&Math.random()<.7){inBuf.sort((a,b)=>buffer.filter(x=>x===b).length-buffer.filter(x=>x===a).length);t=inBuf[0]}
-  else t=cand[Math.random()*cand.length|0];
-  return {t,n:0,arrived:0};
+
+function remainingOf(t){
+  let n=0;
+  cols.forEach(c=>c.trays.forEach(tr=>tr.forEach(v=>{if(v===t)n++;})));
+  slots.forEach(s=>{if(s&&s.t===t)n++;});
+  return n;
+}
+function makeTarget(i){
+  // elegir un tipo que todavía tenga productos y no esté en otra caja
+  const used=targets.filter((x,j)=>x&&j!==i).map(x=>x.t);
+  const opts=[];
+  for(let t=0;t<PRODUCTS.length;t++) if(!used.includes(t) && remainingOf(t)>0) opts.push(t);
+  if(!opts.length) return null;
+  // preferir tipos que estén en espera para ayudar
+  const waiting=opts.filter(t=>slots.some(s=>s&&s.t===t));
+  const t=waiting.length&&Math.random()<0.6 ? waiting[rnd(waiting.length)] : opts[rnd(opts.length)];
+  return {t, fill:[false,false,false], landed:[false,false,false], pop:0};
 }
 
-// ---------- rendering ----------
-function renderOrders(){
-  $('orders').innerHTML=orders.map((o,i)=>{
-    if(!o)return `<div class="order empty" id="o${i}"></div>`;
-    let s='';for(let k=0;k<PER;k++){
-      const cls=k<o.arrived?'':(k<o.n?'hide':'shadow');
-      s+=`<div class="oslot ${cls}" id="o${i}s${k}"><span>${o.t}</span></div>`}
-    return `<div class="order" id="o${i}">${s}</div>`}).join('');
+// ---------- Posiciones ----------
+function tgtPos(i,k){ const x=TGT.gap+i*(TGT.w+TGT.gap); return {x:x+TGT.w*TGT_CELLS[k], y:TGT.y+TGT.h*0.43}; }
+function slotPos(i){ return {x:SLOT.gap+i*(SLOT.s+SLOT.gap)+SLOT.s/2, y:SLOT.y+SLOT.s/2}; }
+function trayY(col,k){
+  const loop=TRAY.step*TRAYS_PER_COL;
+  let y=COL.top + k*TRAY.step + col.off;
+  y=((y-COL.top)%loop+loop)%loop + COL.top - TRAY.step;
+  return y + TRAY.len/2;                            // centro
 }
-function renderBuffer(){
-  $('buffer').innerHTML=buffer.map((t,i)=>`<div class="bslot ${i>=BUF?'extra':''} ${t&&t.pending?'hide':''}" id="b${i}"><span>${t?(t.t||t):''}</span></div>`).join('');
+function cellPos(c,k,j){ return {x:COL.w*c+COL.w/2, y:trayY(cols[c],k)+TRAY.len*TRAY_CELLS[j]}; }
+
+// ---------- Dibujo ----------
+function drawProduct(t,x,y,size,silhouette){
+  const p=PRODUCTS[t];
+  ctx.save();
+  if(silhouette){ ctx.filter='brightness(0)'; ctx.globalAlpha=0.22; }
+  if(p.im&&p.im.complete){ ctx.drawImage(p.im,x-size/2,y-size/2,size,size); }
+  else{
+    ctx.font=Math.round(size*0.82)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(p.e,x,y+size*0.05);
+  }
+  ctx.restore();
 }
-function buildBoard(){
-  const b=$('board');b.innerHTML='';
+function img(name,x,y,w,h){ const i=IMG[name]; if(i.complete&&i.naturalWidth) ctx.drawImage(i,x,y,w,h); }
+
+function draw(){
+  img('fondo',0,0,W,H);
+  // HUD
+  ctx.font='bold 44px system-ui,sans-serif'; ctx.fillStyle='#5a3a22'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(T.level+' '+level, W/2, 62);
+  // cajas destino
+  targets.forEach((tg,i)=>{
+    const x=TGT.gap+i*(TGT.w+TGT.gap);
+    let s=1; if(tg&&tg.pop>0) s=1+0.12*Math.sin(tg.pop*Math.PI);
+    ctx.save(); ctx.translate(x+TGT.w/2,TGT.y+TGT.h/2); ctx.scale(s,s); ctx.translate(-(x+TGT.w/2),-(TGT.y+TGT.h/2));
+    if(tg&&tg.pop>0) ctx.globalAlpha=1-tg.pop*0.6;
+    img('destino',x,TGT.y,TGT.w,TGT.h);
+    if(tg) for(let k=0;k<3;k++){ const p=tgtPos(i,k); drawProduct(tg.t,p.x,p.y,92,!tg.landed[k]); }
+    ctx.restore();
+  });
+  // espera
+  slots.forEach((s,i)=>{
+    const p=slotPos(i); img('plato',p.x-SLOT.s/2,p.y-SLOT.s/2,SLOT.s,SLOT.s);
+    if(s&&s.landed) drawProduct(s.t,p.x,p.y,128,false);
+  });
+  // columnas
+  ctx.save(); ctx.beginPath(); ctx.rect(0,COL.top,W,COL.bot-COL.top); ctx.clip();
   cols.forEach((col,c)=>{
-    const ce=document.createElement('div');ce.className='col';ce.dataset.arrow=c%2===0?'▼':'▲';
-    col.forEach((cr,i)=>{
-      const el=document.createElement('div');el.className='crate';el.id=`c${c}_${i}`;
-      ce.appendChild(el);fillCrate(c,i,el,false);
+    const cx=COL.w*c+COL.w/2;
+    img('riel',cx-112,COL.top-20,224,COL.bot-COL.top+40);
+    col.trays.forEach((tr,k)=>{
+      const cy=trayY(col,k);
+      if(cy<COL.top-TRAY.len||cy>COL.bot+TRAY.len) return;
+      ctx.save(); ctx.translate(cx,cy); ctx.rotate(Math.PI/2);
+      const i=IMG.caja; if(i.complete&&i.naturalWidth) ctx.drawImage(i,-TRAY.len/2,-TRAY.wid/2,TRAY.len,TRAY.wid);
+      ctx.restore();
+      tr.forEach((t,j)=>{ if(t!==null){ const p=cellPos(c,k,j); drawProduct(t,p.x,p.y,ITEM,false); } });
     });
-    b.appendChild(ce);
   });
-  layout();
-}
-function fillCrate(c,i,el,rise){
-  el=el||$(`c${c}_${i}`);if(!el)return;
-  const L=cols[c][i], front=L[0]||[null,null,null];
-  el.innerHTML='';
-  if(L.length>1){const bk=document.createElement('div');bk.className='back';bk.innerHTML=L[1].map(t=>`<span>${t||''}</span>`).join('')+(L.length>2?`<b>+${L.length-2}</b>`:'');el.appendChild(bk)}
-  el.classList.toggle('stacked',L.length>1);
-  const f=document.createElement('div');f.className='front'+(rise?' rise':'');
-  front.forEach((t,k)=>{const p=document.createElement('div');p.className='prod'+(t?'':' gone');p.textContent=t||'';p.id=`p${c}_${i}_${k}`;
-    p.addEventListener('pointerdown',e=>{e.preventDefault();tapProd(c,i,k)});f.appendChild(p)});
-  el.classList.toggle('emptyc',front.every(t=>!t));
-  el.appendChild(f);
-}
-function afterTake(c,i){
-  const L=cols[c][i];
-  if(L[0].every(t=>!t)){
-    if(L.length>1){setTimeout(()=>{L.shift();fillCrate(c,i,null,true)},260)}
-    else $(`c${c}_${i}`).classList.add('emptyc');
-  }
-}
-function layout(){
-  const h=$('board').querySelector('.col')?.clientHeight||400;
-  crateH=h/VISIBLE;
-  const w=$('board').querySelector('.col')?.clientWidth||80;
-  const fb=Math.round(crateH*0.24);
-  document.documentElement.style.setProperty('--fb',fb+'px');
-  document.documentElement.style.setProperty('--pf',Math.min(38,(w-14)/2.3,(crateH-fb-14)/2.3)+'px');
-  document.documentElement.style.setProperty('--pb',Math.min(18,(w*0.8)/3.6,fb-6)+'px');
-  document.querySelectorAll('.crate').forEach(el=>{el.style.height=(crateH-6)+'px'});
-  positionCrates();
-}
-function positionCrates(){
-  const L=LOOP*crateH;
-  for(let c=0;c<COLS;c++)for(let i=0;i<LOOP;i++){
-    const y=((i*crateH+offsets[c])%L+L)%L-crateH;
-    const el=$(`c${c}_${i}`);if(el)el.style.transform=`translateY(${y+3}px)`;
-  }
-}
-function updateHud(){
-  $('lvl').textContent=T.level+' '+level;$('coins').textContent=coins;
-  const m=counts();let n=0;for(const k in m)n+=m[k];$('left').textContent='🍽️ '+n;
-  $('bSlot').disabled=slotUsed;$('bFreeze').disabled=freezeUsed;
-}
-
-// ---------- animation loop: columns 1&3 go down, 2&4 go up, wrapping ----------
-function loop(ts){
-  const dt=Math.min(.05,(ts-lastT)/1000||0);lastT=ts;
-  if(!over&&ts>frozenUntil){for(let c=0;c<COLS;c++)offsets[c]+=(c%2===0?1:-1)*speed*dt}
-  positionCrates();
-  requestAnimationFrame(loop);
-}
-
-// ---------- flying product ----------
-function fly(t,fromEl,toId,done){
-  const a=fromEl.getBoundingClientRect();
-  const f=document.createElement('div');f.className='fly';f.textContent=t;
-  f.style.left=a.left+'px';f.style.top=a.top+'px';f.style.width=a.width+'px';f.style.height=a.height+'px';
-  document.body.appendChild(f);busy++;
-  requestAnimationFrame(()=>{const to=$(toId);if(!to){f.remove();busy--;done();return}
-    const b=to.getBoundingClientRect();
-    f.style.transform=`translate(${b.left+b.width/2-a.left-a.width/2}px,${b.top+b.height/2-a.top-a.height/2}px)`;});
-  setTimeout(()=>{f.remove();busy--;done()},340);
-}
-function buzz(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
-
-// ---------- input ----------
-function tapProd(c,i,k){
-  if(over)return;
-  const t=cols[c][i][0][k];if(!t)return;
-  const oi=orders.findIndex(o=>o&&o.t===t&&o.n<PER);
-  const src=$(`p${c}_${i}_${k}`);
-  if(oi>=0){
-    cols[c][i][0][k]=null;afterTake(c,i);const o=orders[oi];const slot=o.n++;
-    buzz(12);
-    fly(t,src,`o${oi}s${slot}`,()=>{o.arrived++;renderOrders();checkOrder(oi)});
-    src.classList.add('gone');renderOrders();
-  } else {
-    const bi=buffer.indexOf(null);
-    if(bi<0){gameOver();return}
-    cols[c][i][0][k]=null;afterTake(c,i);buffer[bi]={t,pending:true};
-    src.classList.add('gone');renderBuffer();buzz(25);
-    fly(t,src,`b${bi}`,()=>{if(buffer[bi]&&buffer[bi].pending)buffer[bi]=t;renderBuffer();orders.forEach((o,j)=>{if(o&&o.t===t)pullFromBuffer(j)});checkFull()});
-  }
-  updateHud();
-}
-function checkOrder(oi){
-  const o=orders[oi];if(!o||o.arrived<PER)return;
-  buzz([20,40,20]);
-  $(`o${oi}`).classList.add('closing');
-  setTimeout(()=>{
-    orders[oi]=null;orders[oi]=newOrder();renderOrders();
-    const el=$(`o${oi}`);if(el&&orders[oi])el.classList.add('opening');
-    pullFromBuffer(oi);
-    checkWin();
-  },380);
-}
-function pullFromBuffer(oi){
-  const o=orders[oi];if(!o)return;
-  buffer.forEach((t,bi)=>{
-    if(typeof t==='string'&&t===o.t&&o.n<PER){
-      const slot=o.n++;const src=$(`b${bi}`);
-      buffer[bi]=null;
-      fly(t,src,`o${oi}s${slot}`,()=>{o.arrived++;renderOrders();checkOrder(oi)});
-    }
+  ctx.restore();
+  // en vuelo
+  flying.forEach(f=>{
+    const e=f.k<.5?2*f.k*f.k:1-Math.pow(-2*f.k+2,2)/2;
+    const x=f.x0+(f.x1-f.x0)*e, y=f.y0+(f.y1-f.y0)*e - Math.sin(f.k*Math.PI)*90;
+    drawProduct(f.t,x,y,f.s0+(f.s1-f.s0)*e,false);
   });
-  renderBuffer();renderOrders();updateHud();
 }
-function checkFull(){
-  const full=buffer.every(x=>x);
-  $('buffer').classList.toggle('warn',full);
-  if(full)setTimeout(()=>$('buffer').classList.remove('warn'),400);
+
+// ---------- Lógica ----------
+function fly(t,from,to,s0,s1,done){ flying.push({t,x0:from.x,y0:from.y,x1:to.x,y1:to.y,s0,s1,k:0,done}); }
+
+function sendToTarget(t,from,s0){
+  for(let i=0;i<3;i++){
+    const tg=targets[i]; if(!tg||tg.t!==t||tg.pop>0) continue;
+    const k=tg.fill.indexOf(false); if(k<0) continue;
+    tg.fill[k]=true;
+    fly(t,from,tgtPos(i,k),s0,92,()=>{ tg.landed[k]=true; if(tg.landed.every(Boolean)) tg.pop=0.001; });
+    return true;
+  }
+  return false;
+}
+function sendToSlot(t,from){
+  const i=slots.indexOf(null); if(i<0) return false;
+  const s={t,landed:false}; slots[i]=s;
+  fly(t,from,slotPos(i),ITEM,128,()=>{ s.landed=true; checkLose(); });
+  return true;
+}
+function checkLose(){
+  if(state!=='play') return;
+  if(slots.every(s=>s&&s.landed) && !flying.length){
+    // ¿alguno de espera puede entrar en una caja?
+    const can=slots.some(s=>targets.some(tg=>tg&&tg.t===s.t&&tg.fill.includes(false)));
+    if(!can){ state='lose'; showOv(T.lose,T.retry,newLevel); }
+  }
+}
+function pullFromSlots(){
+  slots.forEach((s,i)=>{
+    if(!s||!s.landed) return;
+    const from=slotPos(i);
+    if(sendToTarget(s.t,from,128)) slots[i]=null;
+  });
 }
 function checkWin(){
-  const m=counts();
-  if(Object.keys(m).length===0&&orders.every(o=>!o)){
-    over=true;const reward=20+level*3;coins+=reward;level++;
-    store.set('level',level);store.set('coins',coins);updateHud();
-    showOverlay('🎉',T.win,T.coins.replace('{n}',reward),[[T.next,'',()=>startLevel()]]);
+  if(state!=='play') return;
+  const left=cols.some(c=>c.trays.some(tr=>tr.some(v=>v!==null))) || slots.some(Boolean) || flying.length;
+  if(!left && targets.every(t=>!t||t.pop===0)){
+    state='win'; level++; try{localStorage.setItem('skewer_level',level);}catch(e){}
+    showOv(T.win,T.next,newLevel);
   }
 }
-function gameOver(){
-  over=true;buzz(200);
-  const btns=[[T.retry,'',()=>startLevel()]];
-  if(!slotUsed)btns.unshift([T.cont,'alt',()=>{addSlot();over=false;hideOverlay()}]);
-  showOverlay('😵',T.lose,T.loseTxt,btns);
-}
-function showOverlay(icon,title,text,btns){
-  $('ovIcon').textContent=icon;$('ovTitle').textContent=title;$('ovText').textContent=text;
-  const box=$('ovBtns');box.innerHTML='';
-  btns.forEach(([label,cls,fn])=>{const b=document.createElement('button');b.textContent=label;b.className=cls;b.onclick=fn;box.appendChild(b)});
-  $('overlay').classList.add('show');
-}
-function hideOverlay(){$('overlay').classList.remove('show')}
 
-// ---------- boosters ----------
-function addSlot(){if(slotUsed)return;slotUsed=true;buffer.push(null);renderBuffer();updateHud()}
-$('bSlot').onclick=()=>{if(!over)addSlot()};
-$('bFreeze').onclick=()=>{if(over||freezeUsed)return;freezeUsed=true;frozenUntil=performance.now()+6000;updateHud()};
-$('bRestart').onclick=()=>startLevel();
-
-function startLevel(){
-  hideOverlay();over=false;slotUsed=false;freezeUsed=false;frozenUntil=0;
-  genLevel(level);renderOrders();renderBuffer();buildBoard();updateHud();
+function tap(x,y){
+  if(state!=='play') return;
+  if(y<COL.top||y>COL.bot) return;
+  const c=Math.floor(x/COL.w); if(c<0||c>3) return;
+  const col=cols[c];
+  for(let k=0;k<col.trays.length;k++) for(let j=0;j<3;j++){
+    const t=col.trays[k][j]; if(t===null) continue;
+    const p=cellPos(c,k,j);
+    if(Math.abs(p.x-x)<COL.w/2 && Math.abs(p.y-y)<ITEM*0.55){
+      if(sendToTarget(t,p,ITEM) || sendToSlot(t,p)) col.trays[k][j]=null;
+      return;
+    }
+  }
 }
-window.addEventListener('resize',layout);
-startLevel();
+
+cv.addEventListener('pointerdown',e=>{
+  const r=cv.getBoundingClientRect();
+  tap((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height);
+});
+
+// ---------- Overlay ----------
+const ov=document.getElementById('ov');
+function showOv(title,btn,fn){ document.getElementById('ovT').textContent=title; const b=document.getElementById('ovB'); b.textContent=btn; b.onclick=fn; ov.style.display='flex'; }
+function hideOv(){ ov.style.display='none'; }
+
+// ---------- Bucle ----------
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(state==='play') cols.forEach(c=>c.off+=c.dir*speed*dt);
+  for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
+  targets.forEach((tg,i)=>{
+    if(tg&&tg.pop>0){ tg.pop+=dt/0.4; if(tg.pop>=1){ targets[i]=makeTarget(i); pullFromSlots(); checkWin(); } }
+  });
+  checkLose(); checkWin();
+  draw();
+  requestAnimationFrame(loop);
+}
+newLevel();
 requestAnimationFrame(loop);
 </script>
 </body>
