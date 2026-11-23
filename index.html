@@ -25,10 +25,9 @@ const T = {
   es:{level:'Nivel', win:'¡Nivel completado!', lose:'¡Sin espacio!', next:'Siguiente', retry:'Reintentar'}
 }[LANG];
 
-// ---------- Productos (reemplazar emoji por PNG cuando estén listos: poner img:'assets/cereza.png') ----------
+// ---------- Productos ----------
 const PRODUCTS = ['cereza','dona','banano','salchicha','uva','naranja','cupcake','fresa','ciruela','camaron','sandia','malvavisco']
-  .map(n=>({e:'?', img:'assets/'+n+'.png'}));
-PRODUCTS.forEach(p=>{ if(p.img){ p.im=new Image(); p.im.src=p.img; } });
+  .map(n=>{ const im=new Image(); im.src='assets/'+n+'.png'; return {im}; });
 
 // ---------- Recursos ----------
 const IMG = {};
@@ -39,37 +38,41 @@ const IMG = {};
 // ---------- Layout (lienzo lógico 1080x1920) ----------
 const W=1080, H=1920;
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
-const TGT={w:330,h:330*336/512,y:120};            // cajas destino
+const TGT={w:330,h:330*336/512,y:120};             // cajas destino
 TGT.gap=(W-3*TGT.w)/4;
-const SLOT={s:186,y:385}; SLOT.gap=(W-5*SLOT.s)/6; // espacios de espera
-const COL={top:610,bot:1905,w:W/4};                // columnas
-const TRAY={w:262}; TRAY.h=TRAY.w*310/824; TRAY.step=TRAY.h+18; TRAY.cell=TRAY.w*0.316; TRAY.dy=-TRAY.h*0.06;
-const ITEM=86;                                     // tamaño producto en bandeja
-const TRAYS_PER_COL=12;
-const TGT_CELLS=[0.27,0.5,0.73];                    // centros de compartimentos (fracción del ancho)
+const TGT_CELLS=[0.27,0.5,0.73];
+const SLOT={s:186,y:385}; SLOT.gap=(W-5*SLOT.s)/6;  // espacios de espera
+// Estaciones: 3x4. Cada una = bandeja principal + bandeja siguiente pequeña abajo
+const GRID={cols:3, rows:4, top:615, bot:1905};
+GRID.cw=W/GRID.cols; GRID.rh=(GRID.bot-GRID.top)/GRID.rows;
+const TRAY={w:330}; TRAY.h=TRAY.w*310/824; TRAY.cell=0.316; TRAY.dy=-0.06; // cell/dy en fracción
+const ITEM=106;                                      // tamaño producto en bandeja principal
+const NEXT_SCALE=0.6;                                // tamaño de la bandeja siguiente
+const RISE_TIME=0.3;
 
 // ---------- Estado ----------
 let level=1; try{ level=+localStorage.getItem('skewer_level')||1; }catch(e){}
-let cols, targets, slots, queue, flying, state, speed;
+let stations, targets, slots, flying, state;
 
 function rnd(n){return Math.floor(Math.random()*n);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 function newLevel(){
   const nTypes=Math.min(PRODUCTS.length, 5+Math.floor(level/2));
-  const cells=4*TRAYS_PER_COL*3;                    // 144 espacios
-  const triples=Math.min(cells/3, 30+level*3);
+  const depth=Math.min(6, 2+Math.floor(level/2));    // bandejas por estación
+  const cells=GRID.cols*GRID.rows*depth*3;
+  const triples=Math.min(Math.floor(cells/3), Math.round(cells*0.75/3));
   let bag=[];
   for(let i=0;i<triples;i++){ const t=i%nTypes; bag.push(t,t,t); }
-  while(bag.length<cells) bag.push(null);            // espacios vacíos
+  while(bag.length<cells) bag.push(null);
   shuffle(bag);
-  cols=[];
-  for(let c=0;c<4;c++){
-    const trays=[];
-    for(let k=0;k<TRAYS_PER_COL;k++) trays.push([bag.pop(),bag.pop(),bag.pop()]);
-    cols.push({trays, off:Math.random()*TRAY.step, dir:(c%2===0)?1:-1});
+  stations=[];
+  for(let s=0;s<GRID.cols*GRID.rows;s++){
+    let q=[];
+    for(let d=0;d<depth;d++) q.push([bag.pop(),bag.pop(),bag.pop()]);
+    q=q.filter(tr=>tr.some(v=>v!==null));           // sin bandejas vacías
+    stations.push({q, rise:0});
   }
-  speed=55+level*6;
   slots=[null,null,null,null,null];
   targets=[null,null,null];
   flying=[];
@@ -80,52 +83,60 @@ function newLevel(){
 
 function remainingOf(t){
   let n=0;
-  cols.forEach(c=>c.trays.forEach(tr=>tr.forEach(v=>{if(v===t)n++;})));
+  stations.forEach(st=>st.q.forEach(tr=>tr.forEach(v=>{if(v===t)n++;})));
   slots.forEach(s=>{if(s&&s.t===t)n++;});
   return n;
 }
 function makeTarget(i){
-  // elegir un tipo que todavía tenga productos y no esté en otra caja
   const used=targets.filter((x,j)=>x&&j!==i).map(x=>x.t);
   const opts=[];
   for(let t=0;t<PRODUCTS.length;t++) if(!used.includes(t) && remainingOf(t)>0) opts.push(t);
   if(!opts.length) return null;
-  // preferir tipos que estén en espera para ayudar
   const waiting=opts.filter(t=>slots.some(s=>s&&s.t===t));
-  const t=waiting.length&&Math.random()<0.6 ? waiting[rnd(waiting.length)] : opts[rnd(opts.length)];
+  const visible=opts.filter(t=>stations.some(st=>st.q[0]&&st.q[0].includes(t)));
+  let t;
+  if(waiting.length&&Math.random()<0.6) t=waiting[rnd(waiting.length)];
+  else if(visible.length&&Math.random()<0.75) t=visible[rnd(visible.length)];
+  else t=opts[rnd(opts.length)];
   return {t, fill:[false,false,false], landed:[false,false,false], pop:0};
 }
 
 // ---------- Posiciones ----------
 function tgtPos(i,k){ const x=TGT.gap+i*(TGT.w+TGT.gap); return {x:x+TGT.w*TGT_CELLS[k], y:TGT.y+TGT.h*0.43}; }
 function slotPos(i){ return {x:SLOT.gap+i*(SLOT.s+SLOT.gap)+SLOT.s/2, y:SLOT.y+SLOT.s/2}; }
-function trayY(col,k){
-  const loop=TRAY.step*TRAYS_PER_COL;
-  let y=COL.top + k*TRAY.step + col.off;
-  y=((y-COL.top)%loop+loop)%loop + COL.top - TRAY.step;
-  return y + TRAY.h/2;                              // centro
+function stationBase(s){
+  const c=s%GRID.cols, r=Math.floor(s/GRID.cols);
+  const cx=GRID.cw*c+GRID.cw/2, top=GRID.top+GRID.rh*r;
+  const mainY=top+TRAY.h/2+20;
+  const nextY=mainY+TRAY.h/2+14+TRAY.h*NEXT_SCALE/2;
+  return {cx, mainY, nextY};
 }
-function cellPos(c,k,j){ return {x:COL.w*c+COL.w/2+(j-1)*TRAY.cell, y:trayY(cols[c],k)+TRAY.dy}; }
+// bandeja principal (con animación de subida)
+function mainTray(s){
+  const b=stationBase(s), k=stations[s].rise;
+  return {cx:b.cx, cy:b.mainY+(b.nextY-b.mainY)*k, sc:1-(1-NEXT_SCALE)*k};
+}
+function cellOf(tr,j){ return {x:tr.cx+(j-1)*TRAY.cell*TRAY.w*tr.sc, y:tr.cy+TRAY.dy*TRAY.h*tr.sc}; }
 
 // ---------- Dibujo ----------
 function drawProduct(t,x,y,size,silhouette){
   const p=PRODUCTS[t];
+  if(!p.im.complete||!p.im.naturalWidth) return;
   ctx.save();
   if(silhouette){ ctx.filter='brightness(0)'; ctx.globalAlpha=0.22; }
-  if(p.im&&p.im.complete){ ctx.drawImage(p.im,x-size/2,y-size/2,size,size); }
-  else{
-    ctx.font=Math.round(size*0.82)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(p.e,x,y+size*0.05);
-  }
+  ctx.drawImage(p.im,x-size/2,y-size/2,size,size);
   ctx.restore();
 }
-function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-function drawTray(cx,cy){ img('bandeja',cx-TRAY.w/2,cy-TRAY.h/2,TRAY.w,TRAY.h); }
 function img(name,x,y,w,h){ const i=IMG[name]; if(i.complete&&i.naturalWidth) ctx.drawImage(i,x,y,w,h); }
+function drawTray(items,tr,dim){
+  ctx.save(); if(dim) ctx.globalAlpha=0.85;
+  img('bandeja',tr.cx-TRAY.w*tr.sc/2,tr.cy-TRAY.h*tr.sc/2,TRAY.w*tr.sc,TRAY.h*tr.sc);
+  items.forEach((t,j)=>{ if(t!==null){ const p=cellOf(tr,j); drawProduct(t,p.x,p.y,ITEM*tr.sc,false); } });
+  ctx.restore();
+}
 
 function draw(){
   img('fondo',0,0,W,H);
-  // HUD
   ctx.font='bold 44px system-ui,sans-serif'; ctx.fillStyle='#5a3a22'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(T.level+' '+level, W/2, 62);
   // cajas destino
@@ -143,18 +154,14 @@ function draw(){
     const p=slotPos(i); img('plato',p.x-SLOT.s/2,p.y-SLOT.s/2,SLOT.s,SLOT.s);
     if(s&&s.landed) drawProduct(s.t,p.x,p.y,128,false);
   });
-  // columnas
-  ctx.save(); ctx.beginPath(); ctx.rect(0,COL.top,W,COL.bot-COL.top); ctx.clip();
-  cols.forEach((col,c)=>{
-    const cx=COL.w*c+COL.w/2;
-    col.trays.forEach((tr,k)=>{
-      const cy=trayY(col,k);
-      if(cy<COL.top-TRAY.h||cy>COL.bot+TRAY.h) return;
-      drawTray(cx,cy);
-      tr.forEach((t,j)=>{ if(t!==null){ const p=cellPos(c,k,j); drawProduct(t,p.x,p.y,ITEM,false); } });
-    });
+  // estaciones
+  stations.forEach((st,s)=>{
+    const b=stationBase(s);
+    // bandeja siguiente (pequeña); si viene otra detrás, aparece cuando termina la subida
+    if(st.rise===0 && st.q[1]) drawTray(st.q[1],{cx:b.cx,cy:b.nextY,sc:NEXT_SCALE},true);
+    if(st.rise>0 && st.q[1]){ ctx.save(); ctx.globalAlpha=1-st.rise; drawTray(st.q[1],{cx:b.cx,cy:b.nextY,sc:NEXT_SCALE},true); ctx.restore(); }
+    if(st.q[0]) drawTray(st.q[0],mainTray(s),false);
   });
-  ctx.restore();
   // en vuelo
   flying.forEach(f=>{
     const e=f.k<.5?2*f.k*f.k:1-Math.pow(-2*f.k+2,2)/2;
@@ -179,44 +186,52 @@ function sendToTarget(t,from,s0){
 function sendToSlot(t,from){
   const i=slots.indexOf(null); if(i<0) return false;
   const s={t,landed:false}; slots[i]=s;
-  fly(t,from,slotPos(i),ITEM,128,()=>{ s.landed=true; checkLose(); });
+  fly(t,from,slotPos(i),ITEM,128,()=>{ s.landed=true; });
   return true;
 }
+function fits(t){ return targets.some(tg=>tg&&tg.t===t&&tg.pop===0&&tg.fill.includes(false)); }
 function checkLose(){
-  if(state!=='play') return;
-  if(slots.every(s=>s&&s.landed) && !flying.length){
-    // ¿alguno de espera puede entrar en una caja?
-    const can=slots.some(s=>targets.some(tg=>tg&&tg.t===s.t&&tg.fill.includes(false)));
-    if(!can){ state='lose'; showOv(T.lose,T.retry,newLevel); }
-  }
+  if(state!=='play'||flying.length) return;
+  if(!slots.every(s=>s&&s.landed)) return;
+  if(targets.some(tg=>tg&&tg.pop>0)) return;
+  const canSlot=slots.some(s=>fits(s.t));
+  const canTray=stations.some(st=>st.rise===0&&st.q[0]&&st.q[0].some(t=>t!==null&&fits(t)));
+  if(!canSlot&&!canTray){ state='lose'; showOv(T.lose,T.retry,newLevel); }
 }
 function pullFromSlots(){
   slots.forEach((s,i)=>{
     if(!s||!s.landed) return;
-    const from=slotPos(i);
-    if(sendToTarget(s.t,from,128)) slots[i]=null;
+    if(sendToTarget(s.t,slotPos(i),128)) slots[i]=null;
   });
 }
 function checkWin(){
   if(state!=='play') return;
-  const left=cols.some(c=>c.trays.some(tr=>tr.some(v=>v!==null))) || slots.some(Boolean) || flying.length;
+  const left=stations.some(st=>st.q.length) || slots.some(Boolean) || flying.length;
   if(!left && targets.every(t=>!t||t.pop===0)){
     state='win'; level++; try{localStorage.setItem('skewer_level',level);}catch(e){}
     showOv(T.win,T.next,newLevel);
   }
 }
+function checkEmpty(s){
+  const st=stations[s];
+  if(st.q[0] && st.q[0].every(v=>v===null)){
+    st.q.shift();
+    if(st.q.length) st.rise=1;                       // la de abajo sube
+  }
+}
 
 function tap(x,y){
   if(state!=='play') return;
-  if(y<COL.top||y>COL.bot) return;
-  const c=Math.floor(x/COL.w); if(c<0||c>3) return;
-  const col=cols[c];
-  for(let k=0;k<col.trays.length;k++) for(let j=0;j<3;j++){
-    const t=col.trays[k][j]; if(t===null) continue;
-    const p=cellPos(c,k,j);
-    if(Math.abs(p.x-x)<TRAY.cell/2 && Math.abs(p.y-y)<TRAY.h/2+6){
-      if(sendToTarget(t,p,ITEM) || sendToSlot(t,p)) col.trays[k][j]=null;
-      return;
+  for(let s=0;s<stations.length;s++){
+    const st=stations[s]; if(!st.q[0]||st.rise>0) continue;
+    const tr=mainTray(s);
+    for(let j=0;j<3;j++){
+      const t=st.q[0][j]; if(t===null) continue;
+      const p=cellOf(tr,j);
+      if(Math.abs(p.x-x)<TRAY.cell*TRAY.w/2 && Math.abs(p.y-y)<TRAY.h/2+10){
+        if(sendToTarget(t,p,ITEM) || sendToSlot(t,p)){ st.q[0][j]=null; checkEmpty(s); }
+        return;
+      }
     }
   }
 }
@@ -235,10 +250,10 @@ function hideOv(){ ov.style.display='none'; }
 let last=performance.now();
 function loop(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
-  if(state==='play') cols.forEach(c=>c.off+=c.dir*speed*dt);
+  stations.forEach(st=>{ if(st.rise>0) st.rise=Math.max(0,st.rise-dt/RISE_TIME); });
   for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
   targets.forEach((tg,i)=>{
-    if(tg&&tg.pop>0){ tg.pop+=dt/0.4; if(tg.pop>=1){ targets[i]=makeTarget(i); pullFromSlots(); checkWin(); } }
+    if(tg&&tg.pop>0){ tg.pop+=dt/0.4; if(tg.pop>=1){ targets[i]=makeTarget(i); pullFromSlots(); } }
   });
   checkLose(); checkWin();
   draw();
