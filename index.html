@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Toy Sort</title>
 <style>
-  html,body{margin:0;height:100%;background:#efe4d6;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
-  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  html,body{margin:0;height:100%;background:#e6e0d6;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#8f4a24}
   canvas{display:block;height:100%;max-width:100%;object-fit:contain}
-  @font-face{font-family:"Fredoka";src:url("assets/fonts/Fredoka.ttf") format("truetype");font-weight:300 700;font-display:swap}
-  :root{--bg:#0d2230;--bg2:#13324a;--line:#2a5a76;--fg:#f6f0e1;--muted:#9db8c6;--accent:#ffb547;--accent-ink:#3d2600;--on:#9bd94a;--gold:#ffd166;
+  @font-face{font-family:"Fredoka";src:url("assets/fonts/Fredoka.ttf") format("truetype"),url("Fredoka.ttf") format("truetype");font-weight:300 700;font-display:swap}
+  :root{--bg:#4a2410;--bg2:#7a4220;--line:#a8693a;--fg:#fff4e2;--muted:#f1cfa6;--accent:#ffb547;--accent-ink:#3d2600;--on:#9bd94a;--gold:#ffd166;
         --font:"Fredoka","Trebuchet MS","Segoe UI",system-ui,sans-serif}
-  .overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(5,15,22,.82);font-family:var(--font);color:var(--fg);padding:20px;box-sizing:border-box}
+  .overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(40,18,6,.82);font-family:var(--font);color:var(--fg);padding:20px;box-sizing:border-box}
   .overlay[hidden]{display:none}
-  .panel{width:min(100%,360px);box-sizing:border-box;background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:24px 20px;display:flex;flex-direction:column;gap:12px;text-align:center;animation:panelIn .35s cubic-bezier(.2,1.4,.4,1)}
+  .panel{width:min(100%,360px);box-sizing:border-box;background:var(--bg2);border:2px solid var(--line);border-radius:22px;padding:24px 20px;display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:inset 0 -6px 0 rgba(0,0,0,.18);animation:panelIn .35s cubic-bezier(.2,1.4,.4,1)}
   .panel h2{margin:0;font-size:28px;font-weight:700}
   .panel p{margin:0;color:var(--muted);font-size:17px}
   .panel .toys{display:flex;justify-content:center;gap:6px;margin:4px 0}
@@ -117,44 +117,52 @@
     <button class="btn ghosty" id="overMenu" type="button"></button>
   </div>
 </div>
+
+<!-- Pausa -->
+<div class="overlay" id="pause" hidden>
+  <div class="panel">
+    <h2 id="pauseTitle"></h2>
+    <button class="btn green" id="pauseGo" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="pauseGoLabel"></span></button>
+    <button class="btn ghosty" id="pauseRetry" type="button"></button>
+    <button class="btn ghosty" id="pauseMenu" type="button"></button>
+  </div>
+</div>
 <script src="ads.js"></script>
 <script>
 // ---------- Idioma ----------
 const LANG = (navigator.language||'en').toLowerCase().startsWith('es') ? 'es' : 'en';
 const T = {
-  en:{level:'Level', play:'Play', zone:'Play', sub:'Sort the toys!', tagline:'Match 3 toys and fill the boxes',
+  en:{level:'Level', lv:'Lv.', play:'Play', zone:'Play', sub:'Sort the toys!', tagline:'Match 3 toys and fill the boxes',
       win:'Level complete!', winText:n=>'Level '+n+' cleared', next:'Next level',
-      lose:'Out of space!', loseText:'The plates are full. Try again!', retry:'Try again', menu:'Main menu',
-      double:'x2 with an ad', doubled:'Coins doubled!', loseRevive:'Clear the plates and keep going?',
-      reviveAd:'Watch ad & clear plates', revivePay:'Clear plates', revLeft:n=>n===1?'1 revive left this level':n+' revives left this level',
-      noCoins:'Not enough coins', loading:'Loading…'},
-  es:{level:'Nivel', play:'Jugar', zone:'Jugar', sub:'¡Ordena los juguetes!', tagline:'Junta 3 juguetes iguales y llena las cajas',
+      lose:'Out of space!', loseText:'The spaces are full. Try again!', retry:'Try again', menu:'Main menu',
+      double:'x2 with an ad', doubled:'Coins doubled!', loseRevive:'Clear the spaces and keep going?',
+      reviveAd:'Watch ad & clear spaces', revivePay:'Clear spaces', revLeft:n=>n===1?'1 revive left this level':n+' revives left this level',
+      noCoins:'Not enough coins', loading:'Loading…', pause:'Paused', resume:'Continue', slotFull:'Already used this level'},
+  es:{level:'Nivel', lv:'Nv.', play:'Jugar', zone:'Jugar', sub:'¡Ordena los juguetes!', tagline:'Junta 3 juguetes iguales y llena las cajas',
       win:'¡Nivel superado!', winText:n=>'Nivel '+n+' completado', next:'Siguiente nivel',
-      lose:'¡Sin espacio!', loseText:'Los platos se llenaron. ¡Inténtalo otra vez!', retry:'Reintentar', menu:'Menú principal',
-      double:'x2 viendo un anuncio', doubled:'¡Monedas duplicadas!', loseRevive:'¿Vaciar los platos y seguir?',
-      reviveAd:'Ver anuncio y vaciar platos', revivePay:'Vaciar platos', revLeft:n=>n===1?'Te queda 1 revivida en este nivel':'Te quedan '+n+' revividas en este nivel',
-      noCoins:'No te alcanzan las monedas', loading:'Cargando…'}
+      lose:'¡Sin espacio!', loseText:'Los espacios se llenaron. ¡Inténtalo otra vez!', retry:'Reintentar', menu:'Menú principal',
+      double:'x2 viendo un anuncio', doubled:'¡Monedas duplicadas!', loseRevive:'¿Vaciar los espacios y seguir?',
+      reviveAd:'Ver anuncio y vaciar espacios', revivePay:'Vaciar espacios', revLeft:n=>n===1?'Te queda 1 revivida en este nivel':'Te quedan '+n+' revividas en este nivel',
+      noCoins:'No te alcanzan las monedas', loading:'Cargando…', pause:'Pausa', resume:'Continuar', slotFull:'Ya lo usaste en este nivel'}
 }[LANG];
 
 // ---------- Productos (juguetes) ----------
-// Cada juguete guarda también su sombra oscura (pista de las cajas de arriba)
-const SIL_COLOR='#2a1a12', SIL_ALPHA=0.5;
-function makeSil(im){
+// Cada juguete guarda dos versiones extra: "dark" (fila de atrás, en sombra) y "ghost" (pista gris en las vitrinas)
+function tinted(im,mode){
   try{
     const c=document.createElement('canvas'); c.width=im.naturalWidth; c.height=im.naturalHeight;
-    const x=c.getContext('2d'); x.drawImage(im,0,0);
-    x.globalCompositeOperation='source-in'; x.fillStyle=SIL_COLOR; x.fillRect(0,0,c.width,c.height);
+    const x=c.getContext('2d');
+    if(mode==='ghost'){ x.filter='grayscale(1) brightness(1.2)'; x.drawImage(im,0,0); x.filter='none'; }
+    else{ x.drawImage(im,0,0); x.globalCompositeOperation='source-atop'; x.fillStyle='rgba(40,25,16,.74)'; x.fillRect(0,0,c.width,c.height); }
     return c;
   }catch(e){ return null; }
 }
 const PRODUCTS = ['osito','robot','muneca','carro','unicornio','aros','dino','cubos','cohete','conejo','tambor','xilofono']
-  .map(n=>{ const im=new Image(), p={im,sil:null}; im.onload=()=>{ p.sil=makeSil(im); }; im.src='assets/'+n+'.png'; return p; });
+  .map(n=>{ const im=new Image(), p={im,dark:null,ghost:null}; im.onload=()=>{ p.dark=tinted(im,'dark'); p.ghost=tinted(im,'ghost'); }; im.src='assets/'+n+'.png'; return p; });
 
 // ---------- Recursos ----------
 const IMG = {};
-['fondo.jpg','destino.png','plato.png','bandeja.png','coin.webp'].forEach(n=>{
-  const i=new Image(); i.src='assets/'+n; IMG[n.split('.')[0]]=i;
-});
+['coin.webp'].forEach(n=>{ const i=new Image(); i.src='assets/'+n; IMG[n.split('.')[0]]=i; });
 IMG.coin.onload=()=>document.body.classList.add('coinimg');   // si no está coin.webp, se usa la moneda dibujada
 
 // Espera a que carguen las imágenes antes de dejar jugar (teléfonos lentos). Máximo 12 s.
@@ -184,41 +192,49 @@ function updateCoinUI(){ const h=document.getElementById('homeCoins'); if(h) h.t
 // ---------- Layout (lienzo lógico 1080x1920) ----------
 const W=1080, H=1920;
 const cv=document.getElementById('c'), ctx=cv.getContext('2d');
-const TGT={w:330,h:330*336/512,y:120};             // cajas destino
-TGT.gap=(W-3*TGT.w)/4;
-const TGT_CELLS=[0.27,0.5,0.73];
-const SLOT={s:186,y:385}; SLOT.gap=(W-5*SLOT.s)/6;  // espacios de espera
-const TOP_PANEL={x:14,y:98,w:W-28,h:488,r:44};       // panel liso detrás de cajas y platos (tapa el fondo)
-// Estaciones en 3 columnas que se mueven en bucle (1 y 3 bajan, 2 sube).
-// Cada estación = bandeja principal + bandeja siguiente pequeña abajo
-const COL={n:3, top:600, bot:1910}; COL.w=W/COL.n;
-const PER_COL=7;                                     // estaciones por columna (más que las visibles)
-const STEP=272;                                      // alto de cada estación
-const TRAY={w:330}; TRAY.h=TRAY.w*310/824; TRAY.cell=0.316; TRAY.dy=-0.06; // cell/dy en fracción
-const ITEM=106;                                      // tamaño producto en bandeja principal
-const NEXT_SCALE=0.6;                                // tamaño de la bandeja siguiente
+const HEADER_H=570;                                   // zona de madera de arriba (barra, vitrinas, espera)
+const BAR={y:26,h:86};
+const PAUSE={w:88,h:84}; PAUSE.x=W-30-PAUSE.w; PAUSE.y=BAR.y+1;
+// Vitrinas destino: 4, las 2 últimas cerradas (se abren con anuncio)
+const TGT={n:4,w:248,h:172,y:140}; TGT.gap=(W-TGT.n*TGT.w)/(TGT.n+1);
+const TGT_CELLS=[1/6,3/6,5/6], BOX_ITEM=82;
+const LEDGE_Y=TGT.y+TGT.h+2;
+// Espacios de espera: 5 bases de madera (el potenciador "+" agrega una 6.ª por el nivel)
+const SLOT={n:5,w:146,h:48,y:482};
+const SLOT_ITEM=120;
+// Estantes: 5 filas. Filas fijas (cubículos) y filas que se deslizan de lado.
+const ROW={top:600,h:232,n:5};
+// Barra de potenciadores abajo: se abren con el nivel. Por ahora solo funciona el "+" (espacio extra).
+const BOOST={y:1774,s:124,gap:34}; BOOST.top=BOOST.y-14;
+const BOOSTERS=[{id:'slot',lv:3},{id:'magnet',lv:5,soon:true},{id:'undo',lv:7,soon:true},{id:'shuffle',lv:10,soon:true}];
+const CELL=100, ITEM=128;                             // separación y tamaño de los juguetes del frente
+const BACK={dx:0.84, dy:-40, sc:0.84};                // fila de atrás: más junta, más arriba, más chica
+const FIX_W=W/3;
+const BELT={step:360,n:5,plank:320}; BELT.loop=BELT.step*BELT.n;
+const SPEED=45;                                      // velocidad fija de las filas móviles
 const RISE_TIME=0.3;
+const PATTERNS=[['fix','belt','fix','fix','belt'],['belt','fix','fix','belt','fix']];
+const MASKS=[[1,0,1],[0,1,0],[1,1,1],[0,1,1],[1,1,0]];
 
 // ---------- Estado ----------
 let level=1; try{ level=+localStorage.getItem('skewer_level')||1; }catch(e){}
-let stations, cols, targets, slots, flying, state, speed;
+let extraUsed=false, toast=null, rows, stations, targets, locked, slots, flying, state, total, sorted, shownProg=0, adPaused=false, bgLevel=null;
 
 function rnd(n){return Math.floor(Math.random()*n);}
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=rnd(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 
-const SPEED=45;                                      // velocidad fija de las columnas
 function diff(){
   const L=level-1;
   return {
-    types:  Math.min(PRODUCTS.length, 4+Math.floor(L/4)), // +1 producto distinto cada 4 niveles
-    depth:  Math.min(5, 2+Math.floor(L/8)),               // +1 bandeja en cola cada 8 niveles
+    types:  Math.min(PRODUCTS.length, 4+Math.floor(L/4)), // +1 juguete distinto cada 4 niveles
+    depth:  Math.min(5, 2+Math.floor(L/8)),               // +1 capa en cola cada 8 niveles
     fill:   Math.min(0.9, 0.6+L*0.01),                    // menos espacios vacíos
     spread: Math.min(1, L*0.04),                          // iguales cada vez más separados
-    helpWait: Math.max(0.25, 0.7-L*0.015),                // las cajas de arriba ayudan menos
+    helpWait: Math.max(0.25, 0.7-L*0.015),                // las vitrinas ayudan menos
     helpVis:  Math.max(0.35, 0.85-L*0.015)
   };
 }
-// Separa productos iguales que quedaron en la misma bandeja (k = 0..1)
+// Separa juguetes iguales que quedaron en la misma capa (k = 0..1)
 function spread(trays,k){
   const tries=Math.round(trays.length*6*k);
   for(let n=0;n<tries;n++){
@@ -230,34 +246,40 @@ function spread(trays,k){
   }
 }
 function newLevel(){
-  // Dificultad: sube MUY despacio y solo complica las combinaciones (la velocidad no cambia)
   const D=diff();
-  const nTypes=D.types, depth=D.depth;
-  const cells=COL.n*PER_COL*depth*3;
+  // filas de este nivel
+  const pat=PATTERNS[rnd(PATTERNS.length)];
+  let beltN=0;
+  rows=pat.map((kind,r)=>{
+    if(kind==='belt'){ const dir=(beltN++%2===0)?-1:1; return {kind,dir,off:Math.random()*BELT.step}; }
+    return {kind, mask: r===2 ? MASKS[rnd(MASKS.length)] : [1,1,1]};
+  });
+  stations=[];
+  rows.forEach((row,r)=>{
+    if(row.kind==='fix') row.mask.forEach((m,k)=>{ if(m) stations.push({row:r,k,q:[],rise:0}); });
+    else for(let k=0;k<BELT.n;k++) stations.push({row:r,k,q:[],rise:0});
+  });
+  // juguetes
+  const cells=stations.length*D.depth*3;
   const triples=Math.round(cells*D.fill/3);
+  const pool=shuffle([...PRODUCTS.keys()]).slice(0,D.types);   // juguetes distintos cada nivel
   let bag=[];
-  const pool=shuffle([...PRODUCTS.keys()]).slice(0,nTypes);   // juguetes distintos cada nivel
-  for(let i=0;i<triples;i++){ const t=pool[i%nTypes]; bag.push(t,t,t); }
+  for(let i=0;i<triples;i++){ const t=pool[i%D.types]; bag.push(t,t,t); }
   while(bag.length<cells) bag.push(null);
   shuffle(bag);
-  stations=[];
-  cols=[]; const allTrays=[];
-  for(let c=0;c<COL.n;c++) cols.push({off:Math.random()*STEP, dir:(c%2===0)?1:-1});
-  for(let s=0;s<COL.n*PER_COL;s++){
-    let q=[];
-    for(let d=0;d<depth;d++) q.push([bag.pop(),bag.pop(),bag.pop()]);
-    allTrays.push(...q);
-    stations.push({q, rise:0, c:s%COL.n, k:Math.floor(s/COL.n)});
-  }
+  const allTrays=[];
+  stations.forEach(st=>{ for(let d=0;d<D.depth;d++) st.q.push([bag.pop(),bag.pop(),bag.pop()]); allTrays.push(...st.q); });
   spread(allTrays, D.spread);
-  stations.forEach(st=>st.q=st.q.filter(tr=>tr.some(v=>v!==null))); // sin bandejas vacías
-  speed=SPEED;
-  slots=[null,null,null,null,null];
-  targets=[null,null,null];
+  stations.forEach(st=>st.q=st.q.filter(tr=>tr.some(v=>v!==null))); // sin capas vacías
+  total=triples*3; sorted=0; shownProg=0;
+  slots=new Array(SLOT.n).fill(null); extraUsed=false; toast=null;
+  locked=[false,false,true,true];
+  targets=[null,null,null,null];
   flying=[];
   revives=0;
   state='play';
-  for(let i=0;i<3;i++) targets[i]=makeTarget(i);
+  for(let i=0;i<TGT.n;i++) if(!locked[i]) targets[i]=makeTarget(i);
+  buildBg();
   hideAll();
 }
 
@@ -273,7 +295,7 @@ function makeTarget(i){
   for(let t=0;t<PRODUCTS.length;t++) if(!used.includes(t) && remainingOf(t)>0) opts.push(t);
   if(!opts.length) return null;
   const waiting=opts.filter(t=>slots.some(s=>s&&s.t===t));
-  const visible=opts.filter(t=>stations.some(st=>st.q[0]&&st.q[0].includes(t)));
+  const visible=opts.filter(t=>stations.some(st=>st.q[0]&&st.q[0].includes(t)&&onScreen(st)));
   let t;
   const D=diff();
   if(waiting.length&&Math.random()<D.helpWait) t=waiting[rnd(waiting.length)];
@@ -283,130 +305,253 @@ function makeTarget(i){
 }
 
 // ---------- Posiciones ----------
-function tgtPos(i,k){ const x=TGT.gap+i*(TGT.w+TGT.gap); return {x:x+TGT.w*TGT_CELLS[k], y:TGT.y+TGT.h*0.43}; }
-function slotPos(i){ return {x:SLOT.gap+i*(SLOT.s+SLOT.gap)+SLOT.s/2, y:SLOT.y+SLOT.s/2}; }
-function stationBase(s){
-  const st=stations[s], col=cols[st.c], loop=STEP*PER_COL;
-  let top=st.k*STEP+col.off;
-  top=((top%loop)+loop)%loop + COL.top - STEP;
-  const cx=COL.w*st.c+COL.w/2;
-  const mainY=top+TRAY.h/2+20;
-  const nextY=mainY+TRAY.h/2+14+TRAY.h*NEXT_SCALE/2;
-  return {cx, mainY, nextY};
+function boxX(i){ return TGT.gap+i*(TGT.w+TGT.gap); }
+function tgtPos(i,k){ return {x:boxX(i)+TGT.w*TGT_CELLS[k], y:TGT.y+TGT.h*0.52}; }
+function slotX(i){ const n=slots.length, gap=(W-n*SLOT.w)/(n+1); return gap+i*(SLOT.w+gap); }
+function boostX(i){ const n=BOOSTERS.length, w=n*BOOST.s+(n-1)*BOOST.gap; return (W-w)/2+i*(BOOST.s+BOOST.gap); }
+function slotPos(i){ return {x:slotX(i)+SLOT.w/2, y:SLOT.y-SLOT_ITEM*0.40}; }
+function rowTop(r){ return ROW.top+r*ROW.h; }
+function rowBoard(r){ return rowTop(r)+ROW.h-42; }       // superficie donde se paran los juguetes
+function stationX(st){
+  const row=rows[st.row];
+  if(row.kind==='fix') return FIX_W*st.k+FIX_W/2;
+  let x=st.k*BELT.step+row.off;
+  x=((x%BELT.loop)+BELT.loop)%BELT.loop;
+  return x-BELT.step/2;
 }
-// bandeja principal (con animación de subida)
-function mainTray(s){
-  const b=stationBase(s), k=stations[s].rise;
-  return {cx:b.cx, cy:b.mainY+(b.nextY-b.mainY)*k, sc:1-(1-NEXT_SCALE)*k};
+function onScreen(st){ const x=stationX(st); return x>-BELT.step/2+40 && x<W+BELT.step/2-40; }
+function frontCell(st,j){ const cx=stationX(st), b=rowBoard(st.row); return {x:cx+(j-1)*CELL, y:b-ITEM*0.44, s:ITEM}; }
+function backCell(st,j){ const cx=stationX(st), b=rowBoard(st.row); return {x:cx+(j-1)*CELL*BACK.dx, y:b-ITEM*0.44+BACK.dy, s:ITEM*BACK.sc}; }
+// juguete del frente, con la animación de pasar de atrás hacia adelante
+function liveCell(st,j){
+  const f=frontCell(st,j); if(st.rise<=0) return f;
+  const b=backCell(st,j), k=st.rise;
+  return {x:f.x+(b.x-f.x)*k, y:f.y+(b.y-f.y)*k, s:f.s+(b.s-f.s)*k};
 }
-function cellOf(tr,j){ return {x:tr.cx+(j-1)*TRAY.cell*TRAY.w*tr.sc, y:tr.cy+TRAY.dy*TRAY.h*tr.sc}; }
 
-// ---------- Dibujo ----------
-function drawProduct(t,x,y,size,silhouette){
-  const p=PRODUCTS[t];
-  if(!p.im.complete||!p.im.naturalWidth){
-    if(silhouette){ ctx.save(); ctx.globalAlpha=0.3; ctx.fillStyle=SIL_COLOR; ctx.beginPath(); ctx.arc(x,y,size*0.32,0,Math.PI*2); ctx.fill(); ctx.restore(); }
-    return;
+// ---------- Dibujo: madera ----------
+function rr(c,x,y,w,h,r){ c.beginPath(); c.roundRect(x,y,w,h,r); }
+function grad(c,y0,y1,a,b){ const g=c.createLinearGradient(0,y0,0,y1); g.addColorStop(0,a); g.addColorStop(1,b); return g; }
+let seed=7; function srand(){ seed=(seed*16807)%2147483647; return seed/2147483647; }
+function grain(c,x,y,w,h,alpha){
+  c.save(); c.beginPath(); c.rect(x,y,w,h); c.clip();
+  c.strokeStyle='rgba(70,30,8,'+alpha+')'; c.lineWidth=2;
+  for(let i=0;i<h/9;i++){
+    const yy=y+srand()*h; c.beginPath(); c.moveTo(x,yy);
+    for(let xx=x;xx<=x+w;xx+=60) c.lineTo(xx,yy+Math.sin(xx*0.01+i)*3*srand());
+    c.stroke();
   }
-  ctx.save();
-  if(silhouette){
-    ctx.globalAlpha=SIL_ALPHA;                         // pista: sombra oscura del juguete
-    if(p.sil) ctx.drawImage(p.sil,x-size/2,y-size/2,size,size);
-    else{ ctx.filter='brightness(0)'; ctx.drawImage(p.im,x-size/2,y-size/2,size,size); }
-  } else ctx.drawImage(p.im,x-size/2,y-size/2,size,size);
-  ctx.restore();
+  c.restore();
 }
-function ready(name){ const i=IMG[name]; return i.complete&&i.naturalWidth>0; }
-function img(name,x,y,w,h){ if(ready(name)){ ctx.drawImage(IMG[name],x,y,w,h); return true; } return false; }
-function rr(x,y,w,h,r){ ctx.beginPath(); ctx.roundRect(x,y,w,h,r); }
-// Respaldos dibujados si una imagen aún no carga
-function drawBox(x,y){
-  if(img('destino',x,y,TGT.w,TGT.h)) return;
-  ctx.save();
-  ctx.fillStyle='#c9362c'; rr(x,y,TGT.w,TGT.h,26); ctx.fill();
-  ctx.fillStyle='#f3e3cf';
-  TGT_CELLS.forEach(c=>{ rr(x+TGT.w*c-35,y+TGT.h*0.43-45,70,90,16); ctx.fill(); });
-  ctx.restore();
+// tabla de estante: superficie + canto frontal + sombra abajo
+function board(c,x,y,w,face){
+  c.save();
+  c.fillStyle='rgba(60,40,20,.18)'; rr(c,x+6,y+face,w-12,16,8); c.fill();   // sombra
+  c.fillStyle=grad(c,y-12,y,'#f8d9a8','#f1c487'); rr(c,x,y-12,w,14,6); c.fill();
+  c.fillStyle=grad(c,y,y+face,'#eab06b','#cf8a45'); rr(c,x,y,w,face,7); c.fill();
+  c.fillStyle='rgba(255,255,255,.35)'; c.fillRect(x+8,y+2,w-16,3);
+  c.restore();
 }
-function drawPlate(cx,cy){
-  if(img('plato',cx-SLOT.s/2,cy-SLOT.s/2,SLOT.s,SLOT.s)) return;
-  ctx.save(); ctx.fillStyle='#ffffff'; ctx.strokeStyle='#d9c7b1'; ctx.lineWidth=8;
-  ctx.beginPath(); ctx.arc(cx,cy,SLOT.s*0.44,0,Math.PI*2); ctx.fill(); ctx.stroke(); ctx.restore();
-}
-function drawTrayImg(cx,cy,w,h){
-  if(img('bandeja',cx-w/2,cy-h/2,w,h)) return;
-  ctx.save(); ctx.fillStyle='#8a5a36'; rr(cx-w/2,cy-h/2,w,h,22); ctx.fill(); ctx.restore();
-}
-function drawTray(items,tr,dim){
-  ctx.save(); if(dim) ctx.globalAlpha=0.85;
-  drawTrayImg(tr.cx,tr.cy,TRAY.w*tr.sc,TRAY.h*tr.sc);
-  items.forEach((t,j)=>{ if(t!==null){ const p=cellOf(tr,j); drawProduct(t,p.x,p.y,ITEM*tr.sc,false); } });
-  ctx.restore();
-}
-// Panel liso detrás de las cajas y los platos: así ningún juguete del fondo confunde
-function drawTopPanel(){
-  const P=TOP_PANEL;
-  ctx.save();
-  ctx.shadowColor='rgba(60,35,15,.28)'; ctx.shadowBlur=24; ctx.shadowOffsetY=8;
-  ctx.fillStyle='#f6ead8'; rr(P.x,P.y,P.w,P.h,P.r); ctx.fill();
-  ctx.shadowColor='transparent';
-  ctx.strokeStyle='rgba(120,80,45,.25)'; ctx.lineWidth=4; ctx.stroke();
-  ctx.restore();
+// fondo estático: se dibuja una sola vez por nivel en un lienzo aparte (rendimiento)
+const bg=document.createElement('canvas'); bg.width=W; bg.height=H;
+function buildBg(){
+  const c=bg.getContext('2d'); seed=11;
+  // pared clara de los estantes
+  c.fillStyle=grad(c,HEADER_H,H,'#ebe6de','#ddd5c9'); c.fillRect(0,HEADER_H,W,H-HEADER_H);
+  // madera de arriba
+  c.fillStyle=grad(c,0,HEADER_H,'#a95d30','#8b4520'); c.fillRect(0,0,W,HEADER_H);
+  grain(c,0,0,W,HEADER_H,0.10);
+  // repisa bajo las vitrinas
+  c.save(); c.fillStyle='rgba(40,15,0,.25)'; c.fillRect(0,LEDGE_Y+30,W,22); c.restore();
+  board(c,-10,LEDGE_Y+12,W+20,22);
+  // borde inferior de la zona de arriba
+  c.fillStyle='rgba(60,40,20,.22)'; c.fillRect(0,HEADER_H,W,18);
+  c.fillStyle=grad(c,HEADER_H-24,HEADER_H,'#e8aa66','#c47a3a'); c.fillRect(0,HEADER_H-24,W,24);
+  c.fillStyle='rgba(255,255,255,.3)'; c.fillRect(0,HEADER_H-24,W,3);
+  // bases de espera
+  for(let i=0;i<slots.length;i++){
+    const x=slotX(i), y=SLOT.y;
+    c.fillStyle='rgba(40,15,0,.3)'; rr(c,x+4,y+10,SLOT.w-8,SLOT.h,12); c.fill();
+    c.fillStyle=grad(c,y+14,y+SLOT.h,'#e7a965','#c98444'); rr(c,x,y+10,SLOT.w,SLOT.h-10,12); c.fill();
+    c.fillStyle=grad(c,y-6,y+20,'#fbe0b4','#f3c78c'); rr(c,x,y-6,SLOT.w,26,12); c.fill();
+  }
+  // cubículos de las filas fijas
+  rows.forEach((row,r)=>{
+    if(row.kind!=='fix') return;
+    const top=rowTop(r)+6, b=rowBoard(r);
+    row.mask.forEach((m,k)=>{
+      if(!m) return;
+      const x=FIX_W*k+6, w=FIX_W-12;
+      c.fillStyle='rgba(60,40,20,.16)'; rr(c,x+6,top+8,w,b-top+36,14); c.fill();          // sombra del mueble
+      c.fillStyle=grad(c,top,b,'#d8cebf','#f3eee6'); c.fillRect(x+14,top+16,w-28,b-top-16); // fondo interior
+      c.fillStyle=grad(c,top,top+20,'#f6cf9a','#e4a764'); rr(c,x,top,w,22,8); c.fill();     // tabla de arriba
+      c.fillStyle=grad(c,top+16,top+40,'rgba(80,50,20,.22)','rgba(80,50,20,0)'); c.fillRect(x+14,top+20,w-28,22);
+      c.fillStyle='#e8ab69'; rr(c,x,top,16,b-top+24,6); c.fill(); rr(c,x+w-16,top,16,b-top+24,6); c.fill(); // laterales
+      c.fillStyle='rgba(255,255,255,.25)'; c.fillRect(x+3,top+6,3,b-top); c.fillRect(x+w-13,top+6,3,b-top);
+      board(c,x,b,w,28);
+    });
+  });
+  // banda de madera de los potenciadores
+  c.fillStyle='rgba(60,40,20,.25)'; c.fillRect(0,BOOST.top-16,W,16);
+  c.fillStyle=grad(c,BOOST.top,H,'#a95d30','#86411d'); c.fillRect(0,BOOST.top,W,H-BOOST.top);
+  grain(c,0,BOOST.top,W,H-BOOST.top,0.10);
+  c.fillStyle=grad(c,BOOST.top,BOOST.top+18,'#e8aa66','#c47a3a'); c.fillRect(0,BOOST.top,W,18);
+  bgLevel=level;
 }
 
-// chip de monedas arriba a la derecha (dentro del lienzo)
-function drawCoinChip(){
+// ---------- Dibujo: juguetes ----------
+function drawProduct(t,x,y,size,mode,alpha){
+  const p=PRODUCTS[t]; if(!p.im.complete||!p.im.naturalWidth) return;
+  const src = mode==='dark' ? (p.dark||p.im) : mode==='ghost' ? (p.ghost||p.im) : p.im;
+  ctx.save();
+  if(alpha!==undefined) ctx.globalAlpha*=alpha;
+  if(mode==='dark'&&!p.dark) ctx.filter='brightness(0.25)';
+  ctx.drawImage(src,x-size/2,y-size/2,size,size);
+  ctx.restore();
+}
+function ready(name){ const i=IMG[name]; return i&&i.complete&&i.naturalWidth>0; }
+
+function drawBox(i){
+  const x=boxX(i), y=TGT.y, w=TGT.w, h=TGT.h, tg=targets[i], lock=locked[i];
+  let s=1; if(tg&&tg.pop>0) s=1+0.12*Math.sin(tg.pop*Math.PI);
+  ctx.save();
+  ctx.translate(x+w/2,y+h/2); ctx.scale(s,s); ctx.translate(-(x+w/2),-(y+h/2));
+  if(tg&&tg.pop>0) ctx.globalAlpha=1-tg.pop*0.6;
+  // marco
+  ctx.fillStyle='rgba(40,15,0,.3)'; rr(ctx,x+4,y+8,w,h,20); ctx.fill();
+  ctx.fillStyle=grad(ctx,y,y+h,lock?'#c9c4bd':'#f0b879',lock?'#9b958d':'#c98140'); rr(ctx,x,y,w,h,20); ctx.fill();
+  // interior
+  const ix=x+12, iy=y+12, iw=w-24, ih=h-32;
+  ctx.fillStyle=lock?grad(ctx,iy,iy+ih,'#6f6a64','#57534e'):grad(ctx,iy,iy+ih,'#7c4120','#a8622f'); rr(ctx,ix,iy,iw,ih,12); ctx.fill();
+  if(!lock){
+    ctx.strokeStyle='rgba(0,0,0,.22)'; ctx.lineWidth=4;
+    [1,2].forEach(k=>{ const xx=ix+iw*k/3; ctx.beginPath(); ctx.moveTo(xx,iy+6); ctx.lineTo(xx,iy+ih-6); ctx.stroke(); });
+    if(tg) for(let k=0;k<3;k++){ const p=tgtPos(i,k); drawProduct(tg.t,p.x,p.y,BOX_ITEM, tg.landed[k]?'full':'ghost', tg.landed[k]?1:0.55); }
+  } else {
+    // botón verde "+"
+    const cx=x+w/2, cy=iy+ih/2;
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(cx,cy,32,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=grad(ctx,cy-27,cy+27,'#5fd54a','#2f9f2a'); ctx.beginPath(); ctx.arc(cx,cy,27,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff'; rr(ctx,cx-15,cy-5,30,10,4); ctx.fill(); rr(ctx,cx-5,cy-15,10,30,4); ctx.fill();
+  }
+  // brillo del vidrio
+  ctx.fillStyle='rgba(255,255,255,.10)';
+  ctx.beginPath(); ctx.moveTo(ix,iy+ih*0.65); ctx.lineTo(ix+iw*0.45,iy); ctx.lineTo(ix+iw*0.62,iy); ctx.lineTo(ix,iy+ih); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function chip(x,y,w,h){ ctx.fillStyle='rgba(60,22,4,.55)'; rr(ctx,x,y,w,h,h/2); ctx.fill(); }
+function drawBar(){
+  ctx.save();
+  ctx.textBaseline='middle';
+  // contador de juguetes ordenados
+  chip(28,BAR.y+8,290,72);
+  const bx=40, by=BAR.y+14;
+  ctx.fillStyle='#b8693a'; rr(ctx,bx+4,by+4,50,58,8); ctx.fill();
+  ctx.fillStyle='#fdf7ee'; rr(ctx,bx+10,by+12,38,46,5); ctx.fill();
+  ctx.fillStyle='#e2553a'; rr(ctx,bx+17,by,24,14,4); ctx.fill();
+  ctx.strokeStyle='#c9bfb0'; ctx.lineWidth=4; [24,34,44].forEach(yy=>{ ctx.beginPath(); ctx.moveTo(bx+16,by+yy); ctx.lineTo(bx+42,by+yy); ctx.stroke(); });
+  ctx.font='700 46px Fredoka,system-ui,sans-serif'; ctx.fillStyle='#fff'; ctx.textAlign='left';
+  ctx.fillText(sorted+'/'+total, 108, BAR.y+46);
+  // nivel + barra de progreso
+  const px=W/2-150, pw=300;
+  ctx.font='700 36px Fredoka,system-ui,sans-serif'; ctx.fillStyle='#ffe9c9'; ctx.textAlign='center';
+  ctx.fillText(T.lv+' '+level, W/2, BAR.y+20);
+  ctx.fillStyle='rgba(60,22,4,.6)'; rr(ctx,px,BAR.y+48,pw,28,14); ctx.fill();
+  if(shownProg>0.005){ ctx.fillStyle=grad(ctx,BAR.y+50,BAR.y+74,'#ffd86b','#f3a51f'); rr(ctx,px+3,BAR.y+51,Math.max(22,(pw-6)*shownProg),22,11); ctx.fill(); }
+  // monedas
   const txt=String(Math.round(shownCoins));
-  ctx.save();
-  ctx.font='700 40px Fredoka,system-ui,sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-  const w=Math.max(150,ctx.measureText(txt).width+104), h=64, x=W-30-w, y=30;
-  ctx.fillStyle='rgba(13,34,48,.82)'; ctx.beginPath(); ctx.roundRect(x,y,w,h,h/2); ctx.fill();
-  const cx=x+36, cy=y+h/2, r=24, ci=IMG.coin;
-  if(ci.complete&&ci.naturalWidth) ctx.drawImage(ci,cx-r,cy-r,2*r,2*r);
-  else{
-    const g=ctx.createRadialGradient(cx-8,cy-8,2,cx,cy,r); g.addColorStop(0,'#fff3b0'); g.addColorStop(.5,'#ffc83d'); g.addColorStop(1,'#d98e00');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
-  }
-  ctx.fillStyle='#f6f0e1'; ctx.fillText(txt,x+72,cy+2);
+  ctx.font='700 42px Fredoka,system-ui,sans-serif';
+  const cw=Math.max(170,ctx.measureText(txt).width+100), cx0=PAUSE.x-18-cw;
+  chip(cx0,BAR.y+8,cw,72);
+  const ccx=cx0+38, ccy=BAR.y+44, r=25;
+  if(ready('coin')) ctx.drawImage(IMG.coin,ccx-r,ccy-r,2*r,2*r);
+  else{ const g=ctx.createRadialGradient(ccx-8,ccy-8,2,ccx,ccy,r); g.addColorStop(0,'#fff3b0'); g.addColorStop(.5,'#ffc83d'); g.addColorStop(1,'#d98e00'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ccx,ccy,r,0,Math.PI*2); ctx.fill(); }
+  ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.fillText(txt,cx0+74,ccy+2);
+  // pausa
+  ctx.fillStyle='#a8481c'; rr(ctx,PAUSE.x,PAUSE.y+6,PAUSE.w,PAUSE.h,20); ctx.fill();
+  ctx.fillStyle=grad(ctx,PAUSE.y,PAUSE.y+PAUSE.h,'#ff9f4e','#e5702c'); rr(ctx,PAUSE.x,PAUSE.y,PAUSE.w,PAUSE.h-4,20); ctx.fill();
+  ctx.fillStyle='#fff'; rr(ctx,PAUSE.x+26,PAUSE.y+20,12,40,4); ctx.fill(); rr(ctx,PAUSE.x+50,PAUSE.y+20,12,40,4); ctx.fill();
   ctx.restore();
+}
+function lockIcon(cx,cy){
+  ctx.fillStyle='#b8862f'; ctx.lineWidth=9; ctx.strokeStyle='#c99a3a';
+  ctx.beginPath(); ctx.arc(cx,cy-10,17,Math.PI,0); ctx.stroke();
+  ctx.fillStyle=grad(ctx,cy-10,cy+26,'#ffd35a','#e5a21c'); rr(ctx,cx-26,cy-10,52,38,9); ctx.fill();
+  ctx.fillStyle='#8a5a12'; ctx.beginPath(); ctx.arc(cx,cy+6,6,0,Math.PI*2); ctx.fill(); ctx.fillRect(cx-3,cy+6,6,12);
+}
+function drawBoosters(){
+  ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+  BOOSTERS.forEach((b,i)=>{
+    const x=boostX(i), y=BOOST.y, s=BOOST.s, open=level>=b.lv&&!b.soon, used=b.id==='slot'&&extraUsed;
+    ctx.globalAlpha=used?0.5:1;
+    ctx.fillStyle='#b06a33'; rr(ctx,x,y+8,s,s,24); ctx.fill();
+    ctx.fillStyle=grad(ctx,y,y+s,'#fbe0b4','#eeb877'); rr(ctx,x,y,s,s-4,24); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.4)'; rr(ctx,x+14,y+8,s-28,8,4); ctx.fill();
+    const cx=x+s/2, cy=y+s/2-2;
+    if(!open){
+      lockIcon(cx,cy-12);
+      ctx.font='700 30px Fredoka,system-ui,sans-serif'; ctx.fillStyle='#6b3a16';
+      ctx.fillText(T.lv+b.lv,cx,y+s-24);
+    } else if(b.id==='slot'){
+      // base de madera con "+"
+      ctx.fillStyle=grad(ctx,cy,cy+30,'#e7a965','#c98444'); rr(ctx,cx-40,cy+2,80,26,8); ctx.fill();
+      ctx.fillStyle='#f6cf9a'; rr(ctx,cx-40,cy-6,80,16,8); ctx.fill();
+      ctx.fillStyle='#e0703a'; rr(ctx,cx-26,cy-34,52,14,5); ctx.fill(); rr(ctx,cx-7,cy-53,14,52,5); ctx.fill();
+      if(!used){
+        const bx=x+s-14, by=y+s-12;
+        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(bx,by,24,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle=grad(ctx,by-20,by+20,'#5fd54a','#2f9f2a'); ctx.beginPath(); ctx.arc(bx,by,20,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#fff'; rr(ctx,bx-11,by-4,22,8,3); ctx.fill(); rr(ctx,bx-4,by-11,8,22,3); ctx.fill();
+      }
+    }
+  });
+  ctx.globalAlpha=1;
+  if(toast&&toast.t>0){
+    ctx.globalAlpha=Math.min(1,toast.t*3);
+    ctx.font='700 38px Fredoka,system-ui,sans-serif';
+    const w=ctx.measureText(toast.msg).width+60;
+    ctx.fillStyle='rgba(50,20,4,.85)'; rr(ctx,W/2-w/2,BOOST.y-96,w,70,35); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillText(toast.msg,W/2,BOOST.y-60);
+  }
+  ctx.restore();
+}
+function drawStation(st){
+  const cx=stationX(st);
+  if(cx<-BELT.step||cx>W+BELT.step) return;
+  const row=rows[st.row];
+  if(row.kind==='belt') board(ctx,cx-BELT.plank/2,rowBoard(st.row),BELT.plank,26);   // repisa móvil
+  // fila de atrás (en sombra)
+  const back=st.q[1];
+  if(back){
+    const a=st.rise>0?1-st.rise:1;
+    back.forEach((t,j)=>{ if(t!==null){ const p=backCell(st,j); drawProduct(t,p.x,p.y,p.s,'dark',a); } });
+  }
+  // fila del frente
+  const front=st.q[0];
+  if(front) front.forEach((t,j)=>{
+    if(t===null) return;
+    const p=liveCell(st,j);
+    ctx.save(); ctx.fillStyle='rgba(60,35,15,.16)'; ctx.beginPath(); ctx.ellipse(p.x,rowBoard(st.row)-4,p.s*0.34,8,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+    drawProduct(t,p.x,p.y,p.s,'full');
+    if(st.rise>0) drawProduct(t,p.x,p.y,p.s,'dark',st.rise);      // se va aclarando al pasar adelante
+  });
 }
 function draw(){
-  if(!img('fondo',0,0,W,H)){ ctx.fillStyle='#efe4d6'; ctx.fillRect(0,0,W,H); }
-  drawTopPanel();
-  ctx.font='700 46px Fredoka,system-ui,sans-serif'; ctx.fillStyle='#5a3a22'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(T.level+' '+level, W/2, 62);
-  drawCoinChip();
-  // cajas destino
-  targets.forEach((tg,i)=>{
-    const x=TGT.gap+i*(TGT.w+TGT.gap);
-    let s=1; if(tg&&tg.pop>0) s=1+0.12*Math.sin(tg.pop*Math.PI);
-    ctx.save(); ctx.translate(x+TGT.w/2,TGT.y+TGT.h/2); ctx.scale(s,s); ctx.translate(-(x+TGT.w/2),-(TGT.y+TGT.h/2));
-    if(tg&&tg.pop>0) ctx.globalAlpha=1-tg.pop*0.6;
-    drawBox(x,TGT.y);
-    if(tg) for(let k=0;k<3;k++){ const p=tgtPos(i,k); drawProduct(tg.t,p.x,p.y,92,!tg.landed[k]); }
-    ctx.restore();
-  });
-  // espera
-  slots.forEach((s,i)=>{
-    const p=slotPos(i); drawPlate(p.x,p.y);
-    if(s&&s.landed) drawProduct(s.t,p.x,p.y,128,false);
-  });
-  // estaciones
-  ctx.save(); ctx.beginPath(); ctx.rect(0,COL.top,W,COL.bot-COL.top); ctx.clip();
-  stations.forEach((st,s)=>{
-    const b=stationBase(s);
-    if(b.mainY<COL.top-STEP||b.mainY>COL.bot+STEP) return;
-    // bandeja siguiente (pequeña); si viene otra detrás, aparece cuando termina la subida
-    if(st.rise===0 && st.q[1]) drawTray(st.q[1],{cx:b.cx,cy:b.nextY,sc:NEXT_SCALE},true);
-    if(st.rise>0 && st.q[1]){ ctx.save(); ctx.globalAlpha=1-st.rise; drawTray(st.q[1],{cx:b.cx,cy:b.nextY,sc:NEXT_SCALE},true); ctx.restore(); }
-    if(st.q[0]) drawTray(st.q[0],mainTray(s),false);
-  });
+  if(bgLevel===null) buildBg();
+  ctx.drawImage(bg,0,0);
+  drawBar();
+  for(let i=0;i<TGT.n;i++) drawBox(i);
+  slots.forEach((s,i)=>{ if(s&&s.landed){ const p=slotPos(i); drawProduct(s.t,p.x,p.y,SLOT_ITEM,'full'); } });
+  // estantes, de arriba hacia abajo
+  ctx.save(); ctx.beginPath(); ctx.rect(0,HEADER_H,W,BOOST.top-HEADER_H); ctx.clip();
+  for(let r=0;r<ROW.n;r++) stations.forEach(st=>{ if(st.row===r) drawStation(st); });
   ctx.restore();
+  drawBoosters();
   // en vuelo
   flying.forEach(f=>{
     const e=f.k<.5?2*f.k*f.k:1-Math.pow(-2*f.k+2,2)/2;
     const x=f.x0+(f.x1-f.x0)*e, y=f.y0+(f.y1-f.y0)*e - Math.sin(f.k*Math.PI)*90;
-    drawProduct(f.t,x,y,f.s0+(f.s1-f.s0)*e,false);
+    drawProduct(f.t,x,y,f.s0+(f.s1-f.s0)*e,'full');
   });
 }
 
@@ -414,22 +559,22 @@ function draw(){
 function fly(t,from,to,s0,s1,done){ flying.push({t,x0:from.x,y0:from.y,x1:to.x,y1:to.y,s0,s1,k:0,done}); }
 
 function sendToTarget(t,from,s0){
-  for(let i=0;i<3;i++){
-    const tg=targets[i]; if(!tg||tg.t!==t||tg.pop>0) continue;
+  for(let i=0;i<TGT.n;i++){
+    const tg=targets[i]; if(locked[i]||!tg||tg.t!==t||tg.pop>0) continue;
     const k=tg.fill.indexOf(false); if(k<0) continue;
     tg.fill[k]=true;
-    fly(t,from,tgtPos(i,k),s0,92,()=>{ tg.landed[k]=true; if(tg.landed.every(Boolean)) tg.pop=0.001; });
+    fly(t,from,tgtPos(i,k),s0,BOX_ITEM,()=>{ tg.landed[k]=true; sorted++; if(tg.landed.every(Boolean)) tg.pop=0.001; });
     return true;
   }
   return false;
 }
-function sendToSlot(t,from){
+function sendToSlot(t,from,s0){
   const i=slots.indexOf(null); if(i<0) return false;
   const s={t,landed:false}; slots[i]=s;
-  fly(t,from,slotPos(i),ITEM,128,()=>{ s.landed=true; pullFromSlots(); }); // si ya hay caja que calce, sube de una vez
+  fly(t,from,slotPos(i),s0,SLOT_ITEM,()=>{ s.landed=true; pullFromSlots(); }); // si ya hay vitrina que calce, sube de una vez
   return true;
 }
-function fits(t){ return targets.some(tg=>tg&&tg.t===t&&tg.pop===0&&tg.fill.includes(false)); }
+function fits(t){ return targets.some((tg,i)=>!locked[i]&&tg&&tg.t===t&&tg.pop===0&&tg.fill.includes(false)); }
 function checkLose(){
   if(state!=='play'||flying.length) return;
   if(!slots.every(s=>s&&s.landed)) return;
@@ -438,21 +583,20 @@ function checkLose(){
   const canTray=stations.some(st=>st.rise===0&&st.q[0]&&st.q[0].some(t=>t!==null&&fits(t)));
   if(!canSlot&&!canTray){ state='lose'; showLose(); }
 }
-// Revivir: los juguetes de los platos vuelven al final de las columnas (no se pierden, el nivel sigue completable)
+// Revivir: los juguetes de la espera vuelven a los estantes (no se pierden, el nivel sigue completable)
 function revive(){
   const items=slots.filter(Boolean).map(s=>s.t);
   const starts=slots.map((s,i)=>s?slotPos(i):null).filter(Boolean);
-  slots=[null,null,null,null,null];
+  slots=new Array(slots.length).fill(null);
   const trays=[]; for(let i=0;i<items.length;i+=3){ const tr=items.slice(i,i+3); while(tr.length<3) tr.push(null); trays.push(shuffle(tr)); }
   trays.forEach(tr=>{
     const minQ=Math.min(...stations.map(st=>st.q.length));
     const pick=stations.filter(st=>st.q.length===minQ);
     const st=pick[rnd(pick.length)];
-    if(!st.q.length) st.rise=1;                     // estación vacía: la bandeja aparece subiendo
+    if(!st.q.length) st.rise=1;                     // estante vacío: la capa aparece desde atrás
     st.q.push(tr);
   });
-  // efecto: los juguetes salen volando hacia abajo
-  starts.forEach((p,i)=>fly(items[i],p,{x:p.x,y:H+150},128,90,()=>{}));
+  starts.forEach((p,i)=>fly(items[i],p,{x:p.x,y:H+150},SLOT_ITEM,90,()=>{}));
   revives++;
   state='play'; hideAll();
 }
@@ -477,21 +621,18 @@ function showWin(){
 function pullFromSlots(){
   slots.forEach((s,i)=>{
     if(!s||!s.landed) return;
-    if(sendToTarget(s.t,slotPos(i),128)) slots[i]=null;
+    if(sendToTarget(s.t,slotPos(i),SLOT_ITEM)) slots[i]=null;
   });
 }
-// Revisión de respaldo (corre al final de cada movimiento / cuadro): evita niveles imposibles
+// Revisión de respaldo (cada cuadro): evita niveles imposibles
 function backupCheck(){
   if(state!=='play') return;
-  // 1) cajas vacías: si quedan juguetes de un tipo sin caja, abrir una para ese tipo
-  targets.forEach((tg,i)=>{ if(!tg){ const n=makeTarget(i); if(n){ targets[i]=n; } } });
-  // 2) caja que pide un juguete que ya no alcanza para llenarla: cambiarla
+  targets.forEach((tg,i)=>{ if(!tg&&!locked[i]){ const n=makeTarget(i); if(n) targets[i]=n; } });
   targets.forEach((tg,i)=>{
     if(!tg||tg.pop>0) return;
     const free=tg.fill.filter(f=>!f).length;
     if(free===3 && remainingOf(tg.t)<3){ targets[i]=makeTarget(i); }   // solo si aún está vacía
   });
-  // 3) subir a las cajas los juguetes en espera que calcen
   pullFromSlots();
 }
 function checkWin(){
@@ -502,25 +643,41 @@ function checkWin(){
     showWin();
   }
 }
-function checkEmpty(s){
-  const st=stations[s];
+function checkEmpty(st){
   if(st.q[0] && st.q[0].every(v=>v===null)){
     st.q.shift();
-    if(st.q.length) st.rise=1;                       // la de abajo sube
+    if(st.q.length) st.rise=1;                       // la capa de atrás pasa adelante
   }
 }
-
+function unlockBox(i){
+  if(!locked[i]||(window.Ads&&Ads.busy)) return;
+  rewarded('unlock',()=>{ if(!locked[i]||state==='menu') return; locked[i]=false; targets[i]=makeTarget(i); pullFromSlots(); });
+}
+// Potenciador "+": un 6.º espacio de espera por el resto del nivel (con anuncio con recompensa)
+function useBooster(i){
+  const b=BOOSTERS[i];
+  if(level<b.lv||b.soon) return;
+  if(b.id==='slot'){
+    if(extraUsed){ toast={msg:T.slotFull,t:1.6}; return; }
+    if(window.Ads&&Ads.busy) return;
+    rewarded('slot',()=>{ if(extraUsed||state==='menu') return; extraUsed=true; slots.push(null); buildBg(); pullFromSlots(); });
+  }
+}
+const inRect=(x,y,a,b,w,h)=>x>=a&&x<=a+w&&y>=b&&y<=b+h;
 function tap(x,y){
   if(state!=='play') return;
-  for(let s=0;s<stations.length;s++){
-    const st=stations[s]; if(!st.q[0]||st.rise>0) continue;
-    const tr=mainTray(s);
+  if(inRect(x,y,PAUSE.x-10,PAUSE.y-10,PAUSE.w+20,PAUSE.h+20)){ state='pause'; show('pause'); return; }
+  for(let i=0;i<TGT.n;i++) if(locked[i]&&inRect(x,y,boxX(i),TGT.y,TGT.w,TGT.h)){ unlockBox(i); return; }
+  for(let i=0;i<BOOSTERS.length;i++) if(inRect(x,y,boostX(i),BOOST.y,BOOST.s,BOOST.s)){ useBooster(i); return; }
+  if(y<HEADER_H||y>BOOST.top) return;
+  for(const st of stations){
+    if(!st.q[0]||st.rise>0) continue;
     for(let j=0;j<3;j++){
       const t=st.q[0][j]; if(t===null) continue;
-      const p=cellOf(tr,j);
-      if(p.y<COL.top||p.y>COL.bot) continue;
-      if(Math.abs(p.x-x)<TRAY.cell*TRAY.w/2 && Math.abs(p.y-y)<TRAY.h/2+10){
-        if(sendToTarget(t,p,ITEM) || sendToSlot(t,p)){ st.q[0][j]=null; checkEmpty(s); }
+      const p=frontCell(st,j);
+      if(p.x<0||p.x>W) continue;
+      if(Math.abs(p.x-x)<CELL/2 && y>p.y-ITEM*0.5 && y<rowBoard(st.row)+20){
+        if(sendToTarget(t,p,ITEM) || sendToSlot(t,p,ITEM)){ st.q[0][j]=null; checkEmpty(st); }
         return;
       }
     }
@@ -535,12 +692,12 @@ cv.addEventListener('pointerdown',e=>{
 // ---------- Overlay ----------
 const $=id=>document.getElementById(id);
 let assetsReady=false;
-function hideAll(){ ['home','win','over'].forEach(id=>$(id).hidden=true); }
+function hideAll(){ ['home','win','over','pause'].forEach(id=>$(id).hidden=true); }
 function show(id){ hideAll(); $(id).hidden=false; }
 function goMenu(){ state='menu'; $('homeLevel').textContent=T.level+' '+level; $('playLabel').textContent=assetsReady?T.level+' '+level:T.loading; updateCoinUI(); show('home'); }
 // Pantalla completa solo entre niveles (nunca a mitad de nivel). Si acaba de ver un anuncio con recompensa, se salta esta vez.
 function nextLevel(){
-  const done=level-1;                                // nivel recién superado
+  const done=level-1;
   adCount++; try{localStorage.setItem('toysort_adcount',adCount);}catch(e){}
   if(done>=AD_FROM_LEVEL && adCount>=AD_EVERY && !winDoubled){
     adCount=0; try{localStorage.setItem('toysort_adcount',0);}catch(e){}
@@ -548,17 +705,21 @@ function nextLevel(){
   } else newLevel();
 }
 function rewarded(placement,onOk){ if(window.Ads) Ads.showRewarded(placement,onOk,()=>{}); else onOk(); }
+// las filas se detienen mientras se ve un anuncio
+if(window.Ads){ Ads.onPause=()=>{adPaused=true;}; Ads.onResume=()=>{adPaused=false;}; }
 // textos
 $('tagline').textContent=T.tagline; $('playZone').textContent=T.zone;
 $('playTitle').textContent=T.play; $('playSub').textContent=T.sub;
 $('winTitle').textContent=T.win; $('winNextLabel').textContent=T.next; $('winMenu').textContent=T.menu;
 $('overTitle').textContent=T.lose; $('overText').textContent=T.loseText; $('overRetry').textContent=T.retry; $('overMenu').textContent=T.menu;
 $('winDoubleLabel').textContent=T.double; $('overAdLabel').textContent=T.reviveAd; $('overPayLabel').textContent=T.revivePay;
+$('pauseTitle').textContent=T.pause; $('pauseGoLabel').textContent=T.resume; $('pauseRetry').textContent=T.retry; $('pauseMenu').textContent=T.menu;
 $('winToys').innerHTML=['osito','unicornio','robot'].map(n=>'<img src="assets/'+n+'.png" alt="">').join('');
 // botones
 $('playBtn').onclick=()=>{ if(assetsReady) newLevel(); };
-$('winNext').onclick=nextLevel; $('overRetry').onclick=newLevel;
-$('winMenu').onclick=goMenu; $('overMenu').onclick=goMenu;
+$('winNext').onclick=nextLevel; $('overRetry').onclick=newLevel; $('pauseRetry').onclick=newLevel;
+$('winMenu').onclick=goMenu; $('overMenu').onclick=goMenu; $('pauseMenu').onclick=goMenu;
+$('pauseGo').onclick=()=>{ if(state==='pause'){ state='play'; hideAll(); } };
 $('winDouble').onclick=()=>rewarded('double',()=>{
   if(winDoubled) return;
   winDoubled=true; addCoins(winGain);
@@ -574,12 +735,14 @@ updateCoinUI();
 let last=performance.now();
 function loop(now){
   const dt=Math.min(0.05,(now-last)/1000); last=now;
-  if(state==='play') cols.forEach(c=>c.off+=c.dir*speed*dt);
+  if(state==='play'&&!adPaused) rows.forEach(r=>{ if(r.kind==='belt') r.off+=r.dir*SPEED*dt; });
   shownCoins+=(coins-shownCoins)*Math.min(1,dt*8); if(Math.abs(coins-shownCoins)<0.5) shownCoins=coins;
+  const prog=total?sorted/total:0; shownProg+=(prog-shownProg)*Math.min(1,dt*6);
+  if(toast) toast.t-=dt;
   stations.forEach(st=>{ if(st.rise>0) st.rise=Math.max(0,st.rise-dt/RISE_TIME); });
   for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
   targets.forEach((tg,i)=>{
-    if(tg&&tg.pop>0){ tg.pop+=dt/0.4; if(tg.pop>=1){ targets[i]=makeTarget(i); pullFromSlots(); } } // caja nueva: revisar espera
+    if(tg&&tg.pop>0){ tg.pop+=dt/0.4; if(tg.pop>=1){ targets[i]=makeTarget(i); pullFromSlots(); } } // vitrina nueva: revisar espera
   });
   backupCheck();
   checkLose(); checkWin();
