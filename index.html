@@ -8,21 +8,105 @@
   html,body{margin:0;height:100%;background:#efe4d6;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
   canvas{display:block;height:100%;max-width:100%;object-fit:contain}
-  #ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(60,40,30,.45);font-family:system-ui,sans-serif}
-  #ov .card{background:#fff8ee;border:5px solid #5a3a22;border-radius:28px;padding:28px 36px;text-align:center;min-width:240px}
-  #ov h2{margin:0 0 18px;font-size:30px;color:#5a3a22}
-  #ov button{font-size:22px;font-weight:700;padding:14px 34px;border:4px solid #5a3a22;border-radius:18px;background:#ff9a3c;color:#fff;cursor:pointer}
+  @font-face{font-family:"Fredoka";src:url("assets/fonts/Fredoka.ttf") format("truetype");font-weight:300 700;font-display:swap}
+  :root{--bg:#0d2230;--bg2:#13324a;--line:#2a5a76;--fg:#f6f0e1;--muted:#9db8c6;--accent:#ffb547;--accent-ink:#3d2600;--on:#9bd94a;--gold:#ffd166;
+        --font:"Fredoka","Trebuchet MS","Segoe UI",system-ui,sans-serif}
+  .overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(5,15,22,.82);font-family:var(--font);color:var(--fg);padding:20px;box-sizing:border-box}
+  .overlay[hidden]{display:none}
+  .panel{width:min(100%,360px);box-sizing:border-box;background:var(--bg2);border:1px solid var(--line);border-radius:22px;padding:24px 20px;display:flex;flex-direction:column;gap:12px;text-align:center;animation:panelIn .35s cubic-bezier(.2,1.4,.4,1)}
+  .panel h2{margin:0;font-size:28px;font-weight:700}
+  .panel p{margin:0;color:var(--muted);font-size:17px}
+  .panel .toys{display:flex;justify-content:center;gap:6px;margin:4px 0}
+  .panel .toys img{width:64px;height:64px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35));animation:bob 2.6s ease-in-out infinite}
+  .panel .toys img:nth-child(2){animation-delay:.3s;width:76px;height:76px}
+  .panel .toys img:nth-child(3){animation-delay:.6s}
+  .btn{font:inherit;font-weight:600;font-size:17px;border:0;border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn svg{width:16px;height:16px;fill:currentColor}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
+  .btn.green{background:var(--on);color:#16300a;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
+  .btn.ghosty{background:transparent;color:var(--fg);border:2px solid var(--line)}
+  .btn:active,.mode-card:active{transform:translateY(2px) scale(.98)}
+  /* Portada */
+  .home{background:radial-gradient(130% 70% at 50% -10%,var(--bg2),var(--bg) 70%);background-color:var(--bg);place-items:start center;overflow-y:auto}
+  .home-inner{width:min(100%,380px);display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:6px}
+  .home-top{width:100%;display:flex;justify-content:space-between}
+  .chip{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600;font-size:16px}
+  .chip svg{width:18px;height:18px;fill:var(--gold)}
+  .logo{position:relative;width:230px;height:170px;margin-top:6px}
+  .logo .tray{position:absolute;left:0;right:0;bottom:6px;width:230px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+  .logo .toy{position:absolute;width:86px;height:86px;bottom:44px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.3));animation:bob 3.2s ease-in-out infinite}
+  .logo .t1{left:6px;animation-delay:.2s}.logo .t2{left:72px;bottom:58px;width:92px;height:92px}.logo .t3{right:6px;animation-delay:.5s}
+  .home h1{margin:0;font-size:46px;line-height:1;font-weight:700;text-align:center}
+  .home h1 span{color:var(--accent)}
+  .tagline{margin:-4px 0 0;color:var(--muted);font-size:15px;font-weight:500}
+  .zone-title{width:100%;margin:6px 0 0;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .zone-title::after{content:"";flex:1;height:2px;border-radius:2px;background:var(--line)}
+  .mode-card{width:100%;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 8px 14px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:inset 0 -5px 0 rgba(0,0,0,.2),0 6px 14px rgba(0,0,0,.25);transition:transform .1s}
+  .mode-card img{width:84px;height:84px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.2))}
+  .mode-card b{font-size:24px}
+  .mode-card small{font-size:14px;font-weight:600;opacity:.75}
+  .mode-go{margin-top:8px;display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;background:rgba(0,0,0,.15);border-radius:999px;padding:6px 16px}
+  .mode-go svg{width:14px;height:14px;fill:currentColor}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes panelIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="c" width="1080" height="1920"></canvas></div>
-<div id="ov"><div class="card"><h2 id="ovT"></h2><button id="ovB"></button></div></div>
+<!-- Portada -->
+<div class="overlay home" id="home">
+  <div class="home-inner">
+    <div class="home-top">
+      <div class="chip"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg><span id="homeLevel">1</span></div>
+    </div>
+    <div class="logo" aria-hidden="true">
+      <img class="tray" src="assets/bandeja.png" alt="">
+      <img class="toy t1" src="assets/osito.png" alt="">
+      <img class="toy t2" src="assets/unicornio.png" alt="">
+      <img class="toy t3" src="assets/cohete.png" alt="">
+    </div>
+    <h1 id="gameTitle">Toy <span>Sort</span></h1>
+    <p class="tagline" id="tagline"></p>
+    <h2 class="zone-title" id="playZone"></h2>
+    <button class="mode-card" id="playBtn" type="button">
+      <img src="assets/osito.png" alt="" aria-hidden="true">
+      <b id="playTitle"></b>
+      <small id="playSub"></small>
+      <span class="mode-go"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="playLabel"></span></span>
+    </button>
+  </div>
+</div>
+
+<!-- Nivel superado -->
+<div class="overlay" id="win" hidden>
+  <div class="panel">
+    <h2 id="winTitle"></h2>
+    <div class="toys" id="winToys"></div>
+    <p id="winText"></p>
+    <button class="btn green" id="winNext" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="winNextLabel"></span></button>
+    <button class="btn ghosty" id="winMenu" type="button"></button>
+  </div>
+</div>
+
+<!-- Sin espacio -->
+<div class="overlay" id="over" hidden>
+  <div class="panel">
+    <h2 id="overTitle"></h2>
+    <p id="overText"></p>
+    <button class="btn primary" id="overRetry" type="button"></button>
+    <button class="btn ghosty" id="overMenu" type="button"></button>
+  </div>
+</div>
 <script>
 // ---------- Idioma ----------
 const LANG = (navigator.language||'en').toLowerCase().startsWith('es') ? 'es' : 'en';
 const T = {
-  en:{level:'Level', win:'Level complete!', lose:'Out of space!', next:'Next', retry:'Retry'},
-  es:{level:'Nivel', win:'¡Nivel completado!', lose:'¡Sin espacio!', next:'Siguiente', retry:'Reintentar'}
+  en:{level:'Level', play:'Play', zone:'Play', sub:'Sort the toys!', tagline:'Match 3 toys and fill the boxes',
+      win:'Level complete!', winText:n=>'Level '+n+' cleared', next:'Next level',
+      lose:'Out of space!', loseText:'The plates are full. Try again!', retry:'Try again', menu:'Main menu'},
+  es:{level:'Nivel', play:'Jugar', zone:'Jugar', sub:'¡Ordena los juguetes!', tagline:'Junta 3 juguetes iguales y llena las cajas',
+      win:'¡Nivel superado!', winText:n=>'Nivel '+n+' completado', next:'Siguiente nivel',
+      lose:'¡Sin espacio!', loseText:'Los platos se llenaron. ¡Inténtalo otra vez!', retry:'Reintentar', menu:'Menú principal'}
 }[LANG];
 
 // ---------- Productos (juguetes) ----------
@@ -110,7 +194,7 @@ function newLevel(){
   flying=[];
   state='play';
   for(let i=0;i<3;i++) targets[i]=makeTarget(i);
-  hideOv();
+  hideAll();
 }
 
 function remainingOf(t){
@@ -172,7 +256,7 @@ function drawTray(items,tr,dim){
 
 function draw(){
   img('fondo',0,0,W,H);
-  ctx.font='bold 44px system-ui,sans-serif'; ctx.fillStyle='#5a3a22'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font='700 46px Fredoka,system-ui,sans-serif'; ctx.fillStyle='#5a3a22'; ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText(T.level+' '+level, W/2, 62);
   // cajas destino
   targets.forEach((tg,i)=>{
@@ -234,7 +318,7 @@ function checkLose(){
   if(targets.some(tg=>tg&&tg.pop>0)) return;
   const canSlot=slots.some(s=>fits(s.t));
   const canTray=stations.some(st=>st.rise===0&&st.q[0]&&st.q[0].some(t=>t!==null&&fits(t)));
-  if(!canSlot&&!canTray){ state='lose'; showOv(T.lose,T.retry,newLevel); }
+  if(!canSlot&&!canTray){ state='lose'; show('over'); }
 }
 function pullFromSlots(){
   slots.forEach((s,i)=>{
@@ -247,7 +331,7 @@ function checkWin(){
   const left=stations.some(st=>st.q.length) || slots.some(Boolean) || flying.length;
   if(!left && targets.every(t=>!t||t.pop===0)){
     state='win'; level++; try{localStorage.setItem('skewer_level',level);}catch(e){}
-    showOv(T.win,T.next,newLevel);
+    document.getElementById('winText').textContent=T.winText(level-1); show('win');
   }
 }
 function checkEmpty(s){
@@ -281,9 +365,19 @@ cv.addEventListener('pointerdown',e=>{
 });
 
 // ---------- Overlay ----------
-const ov=document.getElementById('ov');
-function showOv(title,btn,fn){ document.getElementById('ovT').textContent=title; const b=document.getElementById('ovB'); b.textContent=btn; b.onclick=fn; ov.style.display='flex'; }
-function hideOv(){ ov.style.display='none'; }
+const $=id=>document.getElementById(id);
+function hideAll(){ ['home','win','over'].forEach(id=>$(id).hidden=true); }
+function show(id){ hideAll(); $(id).hidden=false; }
+function goMenu(){ state='menu'; $('homeLevel').textContent=T.level+' '+level; $('playLabel').textContent=T.level+' '+level; show('home'); }
+// textos
+$('tagline').textContent=T.tagline; $('playZone').textContent=T.zone;
+$('playTitle').textContent=T.play; $('playSub').textContent=T.sub;
+$('winTitle').textContent=T.win; $('winNextLabel').textContent=T.next; $('winMenu').textContent=T.menu;
+$('overTitle').textContent=T.lose; $('overText').textContent=T.loseText; $('overRetry').textContent=T.retry; $('overMenu').textContent=T.menu;
+$('winToys').innerHTML=['osito','unicornio','robot'].map(n=>'<img src="assets/'+n+'.png" alt="">').join('');
+// botones
+$('playBtn').onclick=newLevel; $('winNext').onclick=newLevel; $('overRetry').onclick=newLevel;
+$('winMenu').onclick=goMenu; $('overMenu').onclick=goMenu;
 
 // ---------- Bucle ----------
 let last=performance.now();
@@ -299,7 +393,7 @@ function loop(now){
   draw();
   requestAnimationFrame(loop);
 }
-newLevel();
+newLevel(); goMenu();
 requestAnimationFrame(loop);
 </script>
 </body>
