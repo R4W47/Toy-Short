@@ -766,8 +766,12 @@ function tap(x,y){
 }
 
 cv.addEventListener('pointerdown',e=>{
+  // El lienzo usa object-fit:contain: en pantallas más alargadas que 9:16 (casi todos los teléfonos)
+  // el dibujo queda centrado con franjas arriba/abajo, así que hay que descontarlas.
   const r=cv.getBoundingClientRect();
-  tap((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height);
+  const k=Math.min(r.width/W, r.height/H);
+  const ox=(r.width-W*k)/2, oy=(r.height-H*k)/2;
+  tap((e.clientX-r.left-ox)/k,(e.clientY-r.top-oy)/k);
 });
 
 // ---------- Overlay ----------
