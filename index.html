@@ -3,104 +3,203 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#f9a9b8">
 <title>Toy Sort</title>
+<!-- ¿Celular lento (2 GB de RAM o menos)? La presentación de Stera sale quieta, sin animación. -->
+<script>
+(function(){ try{ var m=navigator.deviceMemory||0; if(m>0&&m<=2) document.documentElement.classList.add('lite'); }catch(e){} })();
+</script>
 <style>
+  @font-face{font-family:"Fredoka";src:url("assets/fonts/Fredoka.ttf") format("truetype"),url("Fredoka.ttf") format("truetype");font-weight:300 700;font-display:swap}
+  /* Colores al estilo de Marshmallow Pals (Stera Digital Studios) */
+  :root{--pink:#c2185b;--pink-dark:#8e0f42;--pink-soft:#ffe6f0;--pink-line:#f8bbd0;--gold:#ffd166;--on:#2e9d4a;
+        --font:"Fredoka","Trebuchet MS","Segoe UI",system-ui,sans-serif}
+  *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:#e6e0d6;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#8f4a24}
   canvas{display:block;height:100%;max-width:100%;object-fit:contain}
-  @font-face{font-family:"Fredoka";src:url("assets/fonts/Fredoka.ttf") format("truetype"),url("Fredoka.ttf") format("truetype");font-weight:300 700;font-display:swap}
-  :root{--bg:#4a2410;--bg2:#7a4220;--line:#a8693a;--fg:#fff4e2;--muted:#f1cfa6;--accent:#ffb547;--accent-ink:#3d2600;--on:#9bd94a;--gold:#ffd166;
-        --font:"Fredoka","Trebuchet MS","Segoe UI",system-ui,sans-serif}
-  .overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(40,18,6,.82);font-family:var(--font);color:var(--fg);padding:20px;box-sizing:border-box}
+
+  /* ===== Presentación al abrir: "Stera Digital Studios" (igual que Marshmallow Pals) ===== */
+  .splash{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;overflow:hidden;
+    background:linear-gradient(180deg,#fde4ec 0%,#f3dcff 50%,#d9f0ff 100%);font-family:var(--font)}
+  .splash.leaving{animation:splash-out 300ms ease-in forwards}
+  .splash-word{display:flex;margin:0;white-space:nowrap;font-size:clamp(3.6rem,20vw,6rem);font-weight:700;line-height:1;letter-spacing:.02em}
+  .splash-word span{display:inline-block;color:var(--c);
+    text-shadow:0 3px 0 #fff,0 -2px 0 #fff,3px 0 0 #fff,-3px 0 0 #fff,0 7px 0 rgba(0,0,0,.08),0 10px 18px rgba(142,15,66,.25);
+    opacity:0;animation:splash-fade 450ms ease-out calc(var(--i)*70ms) forwards,splash-float 1.8s ease-in-out calc(var(--i)*-360ms) infinite}
+  .splash-sub{margin:0;font-size:clamp(.95rem,4.6vw,1.3rem);font-weight:600;letter-spacing:.32em;text-transform:uppercase;color:var(--pink-dark);
+    opacity:0;animation:splash-sub 500ms ease-out 350ms forwards}
+  .splash-sparkle{position:absolute;color:#fff;font-size:1.6rem;text-shadow:0 0 10px rgba(255,193,7,.9);opacity:0;animation:splash-twinkle 1.1s ease-in-out var(--d) infinite}
+  .splash-loading{position:absolute;left:0;right:0;bottom:96px;margin:0;text-align:center;font-size:1.15rem;font-weight:500;color:#6b6080;
+    opacity:0;animation:splash-sub 400ms ease-out 500ms forwards}
+  @keyframes splash-fade{from{opacity:0}to{opacity:1}}
+  @keyframes splash-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes splash-sub{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes splash-twinkle{0%,100%{opacity:0;transform:scale(.4) rotate(0)}50%{opacity:1;transform:scale(1) rotate(90deg)}}
+  @keyframes splash-out{to{opacity:0;visibility:hidden}}
+  html.lite .splash-word span,html.lite .splash-sub,html.lite .splash-loading{animation:none;opacity:1}
+  html.lite .splash-word span{text-shadow:0 3px 0 #fff,0 -2px 0 #fff,3px 0 0 #fff,-3px 0 0 #fff}
+  html.lite .splash-sparkle{display:none}
+  html.lite .splash.leaving{animation-duration:150ms}
+  @media (prefers-reduced-motion:reduce){.splash-word span,.splash-sub,.splash-loading{animation:none;opacity:1}.splash-sparkle{display:none}}
+
+  /* ===== Ventanas (nivel superado, sin espacio, pausa, ajustes, créditos) ===== */
+  .overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;
+    background:rgba(80,20,45,.45);font-family:var(--font);color:var(--pink-dark);animation:fade-in 250ms ease-out}
   .overlay[hidden]{display:none}
-  .panel{width:min(100%,360px);box-sizing:border-box;background:var(--bg2);border:2px solid var(--line);border-radius:22px;padding:24px 20px;display:flex;flex-direction:column;gap:12px;text-align:center;box-shadow:inset 0 -6px 0 rgba(0,0,0,.18);animation:panelIn .35s cubic-bezier(.2,1.4,.4,1)}
-  .panel h2{margin:0;font-size:28px;font-weight:700}
-  .panel p{margin:0;color:var(--muted);font-size:17px}
-  .panel .toys{display:flex;justify-content:center;gap:6px;margin:4px 0}
-  .panel .toys img{width:64px;height:64px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35));animation:bob 2.6s ease-in-out infinite}
+  .panel{width:min(340px,100%);max-height:calc(100% - 8px);overflow-y:auto;padding:22px 20px;text-align:center;background:#fff;border:4px solid var(--pink);
+    border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:10px;animation:card-in 400ms cubic-bezier(.34,1.56,.64,1)}
+  .panel.won{border-color:#f5b000}
+  .panel h2{margin:0 0 2px;font-size:2rem;line-height:1.1;color:var(--pink)}
+  .panel p{margin:0;font-size:1.05rem;font-weight:500}
+  .panel .toys{display:flex;justify-content:center;gap:6px;margin:2px 0}
+  .panel .toys img{width:64px;height:64px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25));animation:bob 2.6s ease-in-out infinite}
   .panel .toys img:nth-child(2){animation-delay:.3s;width:76px;height:76px}
   .panel .toys img:nth-child(3){animation-delay:.6s}
-  .btn{font:inherit;font-weight:600;font-size:17px;border:0;border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn{font:inherit;font-weight:700;font-size:1.05rem;color:var(--pink);background:#fff;border:2px solid var(--pink);border-radius:20px;padding:10px 16px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:8px}
   .btn svg{width:16px;height:16px;fill:currentColor}
-  .btn.primary{background:var(--accent);color:var(--accent-ink);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
-  .btn.green{background:var(--on);color:#16300a;box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
-  .btn.ghosty{background:transparent;color:var(--fg);border:2px solid var(--line)}
-  .btn:active,.mode-card:active{transform:translateY(2px) scale(.98)}
-  /* Portada */
-  .home{background:radial-gradient(130% 70% at 50% -10%,var(--bg2),var(--bg) 70%);background-color:var(--bg);place-items:start center;overflow-y:auto}
-  .home-inner{width:min(100%,380px);display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:6px}
-  .home-top{width:100%;display:flex;justify-content:space-between}
-  .chip{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600;font-size:16px}
-  .chip svg{width:18px;height:18px;fill:var(--gold)}
-  .logo{position:relative;width:230px;height:170px;margin-top:6px}
-  .logo .tray{position:absolute;left:0;right:0;bottom:6px;width:230px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
-  .logo .toy{position:absolute;width:86px;height:86px;bottom:44px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.3));animation:bob 3.2s ease-in-out infinite}
-  .logo .t1{left:6px;animation-delay:.2s}.logo .t2{left:72px;bottom:58px;width:92px;height:92px}.logo .t3{right:6px;animation-delay:.5s}
-  .home h1{margin:0;font-size:46px;line-height:1;font-weight:700;text-align:center}
-  .home h1 span{color:var(--accent)}
-  .tagline{margin:-4px 0 0;color:var(--muted);font-size:15px;font-weight:500}
-  .zone-title{width:100%;margin:6px 0 0;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-  .zone-title::after{content:"";flex:1;height:2px;border-radius:2px;background:var(--line)}
-  .mode-card{width:100%;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 8px 14px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:inset 0 -5px 0 rgba(0,0,0,.2),0 6px 14px rgba(0,0,0,.25);transition:transform .1s}
-  .mode-card img{width:84px;height:84px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.2))}
-  .mode-card b{font-size:24px}
-  .mode-card small{font-size:14px;font-weight:600;opacity:.75}
+  .btn:active{background:var(--pink-soft);transform:translateY(1px)}
+  .btn.primary{color:#fff;background:var(--pink);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
+  .btn.green{color:#fff;background:var(--on);border-color:var(--on);box-shadow:inset 0 -4px 0 rgba(0,0,0,.18)}
+  .btn.ghosty{color:var(--pink);background:#fff}
+  .btn[disabled]{opacity:.45;pointer-events:none}
+  .btn[hidden]{display:none}
+  .btn svg.ad{width:20px;height:20px}
+  .btn .tag{display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.12);border-radius:999px;padding:2px 10px 2px 4px;margin-left:2px}
+  .small{font-size:.9rem!important;color:#9a6b80}
+  /* Ajustes */
+  .settings-list{display:flex;flex-direction:column;gap:8px;width:100%;margin:6px 0 2px}
+  .setting-row{display:flex;align-items:center;gap:12px;width:100%;font:inherit;font-size:1.05rem;font-weight:600;color:var(--pink-dark);text-align:left;
+    background:#fff;border:2px solid var(--pink-line);border-radius:16px;padding:10px 14px;cursor:pointer;transition:transform 100ms,background 150ms}
+  .setting-row[hidden]{display:none}
+  .setting-row:active{transform:translateY(1px);background:var(--pink-soft)}
+  .setting-icon{width:1.6em;font-size:1.25rem;text-align:center}
+  .setting-name{flex:1}
+  .setting-value{font-weight:700;color:var(--pink)}
+  .setting-arrow{font-size:1.5rem;line-height:1;color:var(--pink)}
+  .switch{position:relative;flex:none;width:46px;height:26px;border-radius:13px;background:var(--pink);transition:background 200ms}
+  .switch::after{content:"";position:absolute;top:3px;left:23px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left 200ms}
+  .setting-row.off .switch{background:#cfc3c8}
+  .setting-row.off .switch::after{left:3px}
+  /* Créditos */
+  .credits-game{margin:0!important;font-size:1.7rem!important;font-weight:700!important;line-height:1.1;color:var(--pink)}
+  .credits-version{margin:0!important;font-size:.85rem!important;color:#9a6b80}
+  .credits-list{margin:4px 0 0}
+  .credits-list dt{margin-top:12px;font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9a6b80}
+  .credits-list dd{margin:2px 0 0;font-size:1.05rem;font-weight:700;color:var(--pink-dark)}
+  .credits-list .credits-mail{font-size:.95rem;word-break:break-all}
+  .credits-copy{margin-top:8px!important;font-size:.75rem!important;color:#9a6b80}
+
+  /* ===== Portada (estilo Marshmallow Pals) ===== */
+  .home{background:url("assets/fondo.webp") center/cover no-repeat,linear-gradient(#fbf1e4,#f3e4cf 60%,#d9b483);align-items:flex-start;overflow-y:auto;padding:14px 12px}
+  .home-inner{width:min(100%,380px);display:flex;flex-direction:column;align-items:stretch;gap:10px;text-align:center}
+  .home-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .chip{display:flex;align-items:center;gap:6px;padding:5px 12px;font-weight:700;font-size:1.05rem;color:var(--pink-dark);background:#fff4f8;border:2px solid #ffc2d4;border-radius:999px;white-space:nowrap}
+  .gear-btn{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:20px;padding:0;background:#fff4f8;border:2px solid #ffc2d4;cursor:pointer}
+  .gear-btn:active{transform:translateY(1px)}
+  .hero{margin-top:4px;padding:16px 10px 20px;background:rgba(255,255,255,.86);border-radius:28px;box-shadow:0 6px 18px rgba(142,15,66,.12)}
+  .logo-toys{display:flex;justify-content:center;gap:2px;margin-bottom:4px}
+  .logo-toys img{width:54px;height:54px;filter:drop-shadow(0 4px 5px rgba(0,0,0,.2));animation:toy-hop 2.4s ease-in-out infinite;animation-delay:calc(var(--i)*.15s)}
+  .logo{margin:0;font-size:clamp(2.6rem,14vw,3.4rem);font-weight:700;line-height:.95;color:var(--pink);letter-spacing:.02em;
+    text-shadow:0 3px 0 #fff,0 5px 0 #f8bbd0,0 8px 14px rgba(194,24,91,.35)}
+  .tagline{margin:8px 0 0;color:var(--pink-dark);font-size:.95rem;font-weight:600;opacity:.8}
+  .zone-title{margin:4px 0 0;display:flex;align-items:center;gap:8px;font-size:.85rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fff;
+    text-shadow:0 1px 3px rgba(0,0,0,.45)}
+  .zone-title::after{content:"";flex:1;height:2px;border-radius:2px;background:rgba(255,255,255,.7);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .mode-card{position:relative;font:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:16px 8px 14px;border-radius:20px;border:0;
+    background:var(--pink);color:#fff;box-shadow:inset 0 -5px 0 rgba(0,0,0,.18),0 6px 14px rgba(0,0,0,.25);transition:transform .1s}
+  .mode-card:active{transform:translateY(2px)}
   .mode-card[disabled]{opacity:.6;pointer-events:none}
-  .mode-go{margin-top:8px;display:flex;align-items:center;gap:6px;font-size:16px;font-weight:700;background:rgba(0,0,0,.15);border-radius:999px;padding:6px 16px}
-  .mode-go svg{width:14px;height:14px;fill:currentColor}
+  .mode-ico{font-size:30px;line-height:1;height:34px;display:grid;place-items:center}
+  .mode-card b{font-size:1.4rem}
+  .mode-card small{font-size:.9rem;font-weight:600;opacity:.85}
+  .mode-go{margin-top:8px;font-size:1rem;font-weight:700;background:rgba(0,0,0,.18);border-radius:999px;padding:4px 16px}
+  .home-bar{position:relative;width:100%;display:flex;align-items:center;gap:12px;padding:10px 14px;font:inherit;color:var(--pink-dark);text-align:left;
+    background:rgba(255,255,255,.92);border:2px solid #ffc2d4;border-radius:18px;box-shadow:0 4px 0 #f3a6c1}
+  .home-bar img{width:44px;height:44px;flex:none}
+  .bar-txt{display:flex;flex-direction:column;flex:1}
+  .bar-txt b{font-size:1.1rem}
+  .bar-txt small{font-size:.85rem;opacity:.8}
+  .boost-pips{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap}
+  .boost-pip{font-size:.8rem;font-weight:700;background:var(--pink-soft);border-radius:999px;padding:2px 8px}
+  .boost-pip.locked{opacity:.5}
   /* Monedas */
   .coin{display:inline-block;width:22px;height:22px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b0,#ffc83d 45%,#d98e00);box-shadow:inset 0 -2px 0 rgba(0,0,0,.2)}
   .coinimg .coin{border-radius:0;box-shadow:none;background:url("assets/coin.webp") center/contain no-repeat}
   .btn .coin{width:20px;height:20px}
-  .btn .tag{display:inline-flex;align-items:center;gap:4px;background:rgba(0,0,0,.15);border-radius:999px;padding:2px 10px 2px 4px;margin-left:2px}
-  .btn svg.ad{width:20px;height:20px}
-  .btn[disabled]{opacity:.45;pointer-events:none}
-  .btn[hidden]{display:none}
-  .reward{display:flex;align-items:center;justify-content:center;gap:8px;font-size:30px;font-weight:700;color:var(--gold)}
+  .reward{display:flex;align-items:center;justify-content:center;gap:8px;font-size:30px;font-weight:700;color:#e09a00}
   .reward .coin{width:34px;height:34px}
   .reward.pop{animation:pop .4s cubic-bezier(.2,1.6,.4,1)}
-  .small{font-size:14px!important}
   @keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-  @keyframes panelIn{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes toy-hop{0%,100%{transform:translateY(0) rotate(0)}40%{transform:translateY(-10px) rotate(-6deg)}60%{transform:translateY(-6px) rotate(4deg)}}
+  @keyframes card-in{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes fade-in{from{opacity:0}to{opacity:1}}
 </style>
 </head>
 <body>
+<!-- ===== PRESENTACIÓN AL ABRIR (igual que Marshmallow Pals) ===== -->
+<div id="splash" class="splash" aria-label="Stera Digital Studios">
+  <h1 class="splash-word" aria-hidden="true">
+    <span style="--i:0; --c:#e8457a">S</span><span style="--i:1; --c:#f08a24">t</span><span style="--i:2; --c:#3fae5a">e</span><span style="--i:3; --c:#3b8fe0">r</span><span style="--i:4; --c:#9a5ad8">a</span>
+  </h1>
+  <p class="splash-sub" aria-hidden="true">Digital Studios</p>
+  <span class="splash-sparkle" style="top:30%; left:16%; --d:0.6s" aria-hidden="true">✦</span>
+  <span class="splash-sparkle" style="top:36%; right:14%; --d:1s" aria-hidden="true">✦</span>
+  <span class="splash-sparkle" style="bottom:33%; left:26%; --d:1.3s" aria-hidden="true">✦</span>
+  <p id="splashLoading" class="splash-loading">Loading...</p>
+</div>
+<script>
+(function(){
+  try{
+    var l=localStorage.getItem('toysort_lang') || ((navigator.language||'').toLowerCase().indexOf('es')===0?'es':'en');
+    if(l==='es') document.getElementById('splashLoading').textContent='Cargando...';
+  }catch(e){}
+  window.__splashStart=Date.now();
+})();
+</script>
+
 <div id="wrap"><canvas id="c" width="1080" height="1920"></canvas></div>
-<!-- Portada -->
+
+<!-- ===== PORTADA ===== -->
 <div class="overlay home" id="home">
   <div class="home-inner">
     <div class="home-top">
-      <div class="chip"><svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17l-6.1 3.4 1.5-6.8L2.2 9l6.9-.7z"/></svg><span id="homeLevel">1</span></div>
       <div class="chip"><span class="coin"></span><span id="homeCoins">0</span></div>
+      <button id="homeSettings" class="gear-btn" type="button" aria-label="Settings"><span aria-hidden="true">⚙️</span></button>
     </div>
-    <div class="logo" aria-hidden="true">
-      <img class="tray" src="assets/bandeja.png" alt="">
-      <img class="toy t1" src="assets/osito.png" alt="">
-      <img class="toy t2" src="assets/unicornio.png" alt="">
-      <img class="toy t3" src="assets/cohete.png" alt="">
+    <div class="hero">
+      <div class="logo-toys" aria-hidden="true">
+        <img style="--i:0" src="assets/osito.png" alt=""><img style="--i:1" src="assets/unicornio.png" alt=""><img style="--i:2" src="assets/cohete.png" alt=""><img style="--i:3" src="assets/dino.png" alt=""><img style="--i:4" src="assets/robot.png" alt="">
+      </div>
+      <h1 class="logo">Toy Sort</h1>
+      <p class="tagline" id="tagline"></p>
     </div>
-    <h1 id="gameTitle">Toy <span>Sort</span></h1>
-    <p class="tagline" id="tagline"></p>
     <h2 class="zone-title" id="playZone"></h2>
     <button class="mode-card" id="playBtn" type="button" disabled>
-      <img src="assets/osito.png" alt="" aria-hidden="true">
+      <span class="mode-ico" aria-hidden="true">▶</span>
       <b id="playTitle"></b>
       <small id="playSub"></small>
-      <span class="mode-go"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="playLabel"></span></span>
+      <span class="mode-go" id="playLabel"></span>
     </button>
+    <h2 class="zone-title" id="boostZone"></h2>
+    <div class="home-bar">
+      <img src="assets/cubos.png" alt="" aria-hidden="true">
+      <span class="bar-txt"><b id="boostTitle"></b><span class="boost-pips" id="boostPips"></span></span>
+    </div>
   </div>
 </div>
 
 <!-- Nivel superado -->
 <div class="overlay" id="win" hidden>
-  <div class="panel">
+  <div class="panel won">
     <h2 id="winTitle"></h2>
     <div class="toys" id="winToys"></div>
     <p id="winText"></p>
     <div class="reward" id="winReward"><span class="coin"></span><span id="winCoins">+0</span></div>
-    <button class="btn primary" id="winDouble" type="button"><svg class="ad" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM10 9v6l5-3z" fill-rule="evenodd"/></svg><span id="winDoubleLabel"></span></button>
-    <button class="btn green" id="winNext" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="winNextLabel"></span></button>
+    <button class="btn green" id="winDouble" type="button"><svg class="ad" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM10 9v6l5-3z" fill-rule="evenodd"/></svg><span id="winDoubleLabel"></span></button>
+    <button class="btn primary" id="winNext" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="winNextLabel"></span></button>
     <button class="btn ghosty" id="winMenu" type="button"></button>
   </div>
 </div>
@@ -122,29 +221,85 @@
 <div class="overlay" id="pause" hidden>
   <div class="panel">
     <h2 id="pauseTitle"></h2>
-    <button class="btn green" id="pauseGo" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="pauseGoLabel"></span></button>
+    <button class="btn primary" id="pauseGo" type="button"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><span id="pauseGoLabel"></span></button>
+    <button class="btn ghosty" id="pauseSettings" type="button"></button>
     <button class="btn ghosty" id="pauseRetry" type="button"></button>
     <button class="btn ghosty" id="pauseMenu" type="button"></button>
   </div>
 </div>
+
+<!-- Ajustes -->
+<div class="overlay" id="settings" hidden>
+  <div class="panel">
+    <h2 id="settingsTitle"></h2>
+    <div class="settings-list">
+      <button id="musicToggle" class="setting-row" type="button"><span class="setting-icon" aria-hidden="true">🎵</span><span class="setting-name" id="musicName"></span><span class="switch" aria-hidden="true"></span></button>
+      <button id="sfxToggle" class="setting-row" type="button"><span class="setting-icon" aria-hidden="true">🔊</span><span class="setting-name" id="sfxName"></span><span class="switch" aria-hidden="true"></span></button>
+      <button id="langToggle" class="setting-row" type="button"><span class="setting-icon" aria-hidden="true">🌐</span><span class="setting-name" id="languageName"></span><span class="setting-value" id="langName"></span></button>
+      <button id="privacyBtn" class="setting-row" type="button" hidden><span class="setting-icon" aria-hidden="true">🔒</span><span class="setting-name" id="privacyName"></span><span class="setting-arrow" aria-hidden="true">›</span></button>
+      <button id="creditsBtn" class="setting-row" type="button"><span class="setting-icon" aria-hidden="true">⭐</span><span class="setting-name" id="creditsName"></span><span class="setting-arrow" aria-hidden="true">›</span></button>
+    </div>
+    <button id="settingsClose" class="btn" type="button" style="align-self:center;padding:8px 24px"></button>
+  </div>
+</div>
+
+<!-- Créditos -->
+<div class="overlay" id="credits" hidden>
+  <div class="panel">
+    <h2 id="creditsTitle"></h2>
+    <p class="credits-game">Toy Sort</p>
+    <p class="credits-version"><span id="versionWord"></span> <span id="appVersion">—</span></p>
+    <dl class="credits-list">
+      <dt id="cMadeBy"></dt><dd>Stera Digital Studios</dd>
+      <dt id="cDev"></dt><dd>Stera Digital Studios</dd>
+      <dt id="cMusic"></dt><dd id="cMusicText"></dd>
+      <dt id="cSfx"></dt><dd>Stera Digital Studios</dd>
+      <dt id="cFont"></dt><dd><button type="button" class="license-link" data-license="fredoka">Fredoka · SIL Open Font License</button></dd>
+      <dt id="cThanks"></dt><dd id="cThanksText"></dd>
+      <dt id="cContact"></dt><dd class="credits-mail">steradigitalstudios@gmail.com</dd>
+    </dl>
+    <p class="credits-copy">© 2026 Stera Digital Studios. <span id="cRights"></span></p>
+    <button id="creditsClose" class="btn" type="button" style="align-self:center;padding:8px 24px"></button>
+  </div>
+</div>
+<script src="licenses.js" defer></script>
 <script src="ads.js"></script>
+<script src="audio.js"></script>
 <script>
 // ---------- Idioma ----------
-const LANG = (navigator.language||'en').toLowerCase().startsWith('es') ? 'es' : 'en';
-const T = {
+const TEXTS = {
   en:{level:'Level', lv:'Lv.', play:'Play', zone:'Play', sub:'Sort the toys!', tagline:'Match 3 toys and fill the boxes',
       win:'Level complete!', winText:n=>'Level '+n+' cleared', next:'Next level',
       lose:'Out of space!', loseText:'The spaces are full. Try again!', retry:'Try again', menu:'Main menu',
       double:'x2 with an ad', doubled:'Coins doubled!', loseRevive:'Clear the spaces and keep going?',
       reviveAd:'Watch ad & clear spaces', revivePay:'Clear spaces', revLeft:n=>n===1?'1 revive left this level':n+' revives left this level',
-      noCoins:'Not enough coins', loading:'Loading…', pause:'Paused', resume:'Continue', slotFull:'Already used this level', newBoost:'New power-up! +2', noUse:"Can't use that now"},
+      noCoins:'Not enough coins', loading:'Loading…', pause:'Paused', resume:'Continue', slotFull:'Already used this level', newBoost:'New power-up! +2', noUse:"Can't use that now",
+      continueT:'Continue', boostZone:'Power-ups', boostTitle:'Your power-ups', boostNames:{slot:'Extra space',magnet:'Magnet',undo:'Undo',shuffle:'Shuffle'},
+      settings:'Settings', language:'Language', langName:'English', privacy:'Privacy', credits:'Credits', close:'Close', version:'Version',
+      cMadeBy:'A game by', cDev:'Game design & programming', cFont:'Font', cThanks:'Special thanks', cThanksText:'To our testers, and to you for playing! 💕',
+      cContact:'Contact', cRights:'All rights reserved.', music:'Music', sfx:'Sounds',
+      cMusic:'Music', cMusicText:"Traditional children's songs (public domain), arranged by Stera Digital Studios", cSfx:'Sound effects'},
   es:{level:'Nivel', lv:'Nv.', play:'Jugar', zone:'Jugar', sub:'¡Ordena los juguetes!', tagline:'Junta 3 juguetes iguales y llena las cajas',
       win:'¡Nivel superado!', winText:n=>'Nivel '+n+' completado', next:'Siguiente nivel',
       lose:'¡Sin espacio!', loseText:'Los espacios se llenaron. ¡Inténtalo otra vez!', retry:'Reintentar', menu:'Menú principal',
       double:'x2 viendo un anuncio', doubled:'¡Monedas duplicadas!', loseRevive:'¿Vaciar los espacios y seguir?',
       reviveAd:'Ver anuncio y vaciar espacios', revivePay:'Vaciar espacios', revLeft:n=>n===1?'Te queda 1 revivida en este nivel':'Te quedan '+n+' revividas en este nivel',
-      noCoins:'No te alcanzan las monedas', loading:'Cargando…', pause:'Pausa', resume:'Continuar', slotFull:'Ya lo usaste en este nivel', newBoost:'¡Nuevo potenciador! +2', noUse:'Ahora no se puede usar'}
-}[LANG];
+      noCoins:'No te alcanzan las monedas', loading:'Cargando…', pause:'Pausa', resume:'Continuar', slotFull:'Ya lo usaste en este nivel', newBoost:'¡Nuevo potenciador! +2', noUse:'Ahora no se puede usar',
+      continueT:'Continuar', boostZone:'Potenciadores', boostTitle:'Tus potenciadores', boostNames:{slot:'Espacio extra',magnet:'Imán',undo:'Deshacer',shuffle:'Barajar'},
+      settings:'Ajustes', language:'Idioma', langName:'Español', privacy:'Privacidad', credits:'Créditos', close:'Cerrar', version:'Versión',
+      cMadeBy:'Un juego de', cDev:'Diseño y programación', cFont:'Tipografía', cThanks:'Agradecimientos', cThanksText:'A quienes probaron el juego, ¡y a ti por jugar! 💕',
+      cContact:'Contacto', cRights:'Todos los derechos reservados.', music:'Música', sfx:'Sonidos',
+      cMusic:'Música', cMusicText:'Canciones infantiles tradicionales (dominio público), arreglos de Stera Digital Studios', cSfx:'Efectos de sonido'}
+};
+// Idioma: el que eligió en Ajustes; si no, el del teléfono (español si empieza con "es")
+let LANG=(()=>{ try{ const s=localStorage.getItem('toysort_lang'); if(s==='en'||s==='es') return s; }catch(e){}
+  return (navigator.language||'en').toLowerCase().startsWith('es') ? 'es' : 'en'; })();
+let T=TEXTS[LANG];
+
+// ---------- Sonido (audio.js): música y efectos generados en el juego ----------
+function snd(name,opts){ try{ if(window.Sound) Sound.play(name,opts); }catch(e){} }
+function mus(id){ try{ if(window.Sound) Sound.music(id); }catch(e){} }
+function gameSong(){ return 'game'+((level-1)%4+1); }   // cambia de canción cada nivel
 
 // ---------- Productos (juguetes) ----------
 // Cada juguete guarda dos versiones extra: "dark" (fila de atrás, en sombra) y "ghost" (pista gris en las vitrinas)
@@ -162,7 +317,7 @@ const PRODUCTS = ['osito','robot','muneca','carro','unicornio','aros','dino','cu
 
 // ---------- Recursos ----------
 const IMG = {};
-['coin.webp'].forEach(n=>{ const i=new Image(); i.src='assets/'+n; IMG[n.split('.')[0]]=i; });
+['coin.webp','fondo.webp'].forEach(n=>{ const i=new Image(); i.src='assets/'+n; IMG[n.split('.')[0]]=i; });
 IMG.coin.onload=()=>document.body.classList.add('coinimg');   // si no está coin.webp, se usa la moneda dibujada
 
 // Espera a que carguen las imágenes antes de dejar jugar (teléfonos lentos). Máximo 12 s.
@@ -214,7 +369,7 @@ function saveInv(){ try{ localStorage.setItem('toysort_boost',JSON.stringify(inv
 function giftNew(){                                   // regalo al desbloquear (una sola vez por potenciador)
   let got=false;
   BOOSTERS.forEach(b=>{ if(level>=b.lv&&!inv.given[b.id]){ inv.given[b.id]=1; inv.n[b.id]=(inv.n[b.id]||0)+GIFT; got=true; } });
-  if(got){ saveInv(); toast={msg:T.newBoost,t:2.2}; }
+  if(got){ saveInv(); toast={msg:T.newBoost,t:2.2}; setTimeout(()=>snd('gift'),400); }
 }
 const CELL=100, ITEM=128;                             // separación y tamaño de los juguetes del frente
 const BACK={dx:0.84, dy:-40, sc:0.84};                // fila de atrás: más junta, más arriba, más chica
@@ -284,12 +439,13 @@ function newLevel(){
   slots=new Array(SLOT.n).fill(null); extraUsed=false; toast=null; history=[]; shuffleFx=0;
   locked=[false,false,true,true];
   targets=[null,null,null,null];
-  flying=[];
+  flying=[]; fx=[];
   revives=0;
   state='play';
   for(let i=0;i<TGT.n;i++) if(!locked[i]) targets[i]=makeTarget(i);
   buildBg();
   hideAll();
+  mus(gameSong());
   giftNew();
 }
 
@@ -581,6 +737,47 @@ function draw(){
     const x=f.x0+(f.x1-f.x0)*e, y=f.y0+(f.y1-f.y0)*e - Math.sin(f.k*Math.PI)*90;
     drawProduct(f.t,x,y,f.s0+(f.s1-f.s0)*e,'full');
   });
+  drawFx();
+}
+
+// ---------- Efecto de caja completa: confeti, destellos y aro de luz ----------
+let fx=[], boxCombo=0, lastBoxAt=0;
+const CONFETTI=['#ff5c8a','#ffb547','#4cc46a','#3b8fe0','#9a5ad8','#ffd84d'];
+function burst(i){
+  const cx=boxX(i)+TGT.w/2, cy=TGT.y+TGT.h/2;
+  fx.push({type:'ring',x:cx,y:cy,t:0,life:0.55});
+  fx.push({type:'glow',i,t:0,life:0.6});
+  for(let n=0;n<56;n++){
+    const a=Math.random()*Math.PI*2, v=450+Math.random()*750;
+    fx.push({type:'conf',x:cx,y:cy,vx:Math.cos(a)*v,vy:Math.sin(a)*v-420,r:Math.random()*6,vr:(Math.random()-.5)*14,
+             w:18+Math.random()*16,h:10+Math.random()*9,c:CONFETTI[n%CONFETTI.length],t:0,life:1.1+Math.random()*0.5});
+  }
+  for(let n=0;n<12;n++){
+    const a=n/12*Math.PI*2;
+    fx.push({type:'star',x:cx,y:cy,vx:Math.cos(a)*700,vy:Math.sin(a)*700,t:0,life:0.8});
+  }
+  fx.push({type:'text',x:cx,y:TGT.y+TGT.h+40,t:0,life:0.9,msg:boxCombo>1?'x'+boxCombo+'!':'+3'});
+}
+function updateFx(dt){
+  for(let k=fx.length-1;k>=0;k--){
+    const f=fx[k]; f.t+=dt; if(f.t>=f.life){ fx.splice(k,1); continue; }
+    if(f.type==='conf'){ f.vy+=1500*dt; f.vx*=0.985; f.x+=f.vx*dt; f.y+=f.vy*dt; f.r+=f.vr*dt; }
+    else if(f.type==='star'){ f.vx*=0.9; f.vy*=0.9; f.x+=f.vx*dt; f.y+=f.vy*dt; }
+  }
+}
+function starPath(x,y,r){ ctx.beginPath(); for(let n=0;n<10;n++){ const a=-Math.PI/2+n*Math.PI/5, rr2=n%2?r*0.45:r; ctx.lineTo(x+Math.cos(a)*rr2,y+Math.sin(a)*rr2); } ctx.closePath(); }
+function drawFx(){
+  for(const f of fx){
+    const k=f.t/f.life;
+    ctx.save();
+    if(f.type==='ring'){ ctx.globalAlpha=1-k; ctx.strokeStyle='#fff6b0'; ctx.lineWidth=26*(1-k)+3; ctx.beginPath(); ctx.arc(f.x,f.y,50+k*300,0,Math.PI*2); ctx.stroke(); }
+    else if(f.type==='glow'){ const x=boxX(f.i),y=TGT.y; ctx.globalAlpha=0.7*(1-k); ctx.fillStyle='#fffbe0'; rr(ctx,x-8,y-8,TGT.w+16,TGT.h+16,24); ctx.fill(); }
+    else if(f.type==='conf'){ ctx.globalAlpha=Math.min(1,(1-k)*2); ctx.translate(f.x,f.y); ctx.rotate(f.r); ctx.fillStyle=f.c; ctx.fillRect(-f.w/2,-f.h/2,f.w,f.h); }
+    else if(f.type==='star'){ ctx.globalAlpha=1-k; ctx.fillStyle='#ffe066'; starPath(f.x,f.y,34*(1-k*0.4)); ctx.strokeStyle='#fff'; ctx.lineWidth=4; ctx.stroke(); ctx.fill(); }
+    else if(f.type==='text'){ ctx.globalAlpha=Math.min(1,(1-k)*2); ctx.font='700 80px Fredoka,system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const y=f.y-k*60; ctx.lineWidth=10; ctx.strokeStyle='#8e0f42'; ctx.strokeText(f.msg,f.x,y); ctx.fillStyle='#fff'; ctx.fillText(f.msg,f.x,y); }
+    ctx.restore();
+  }
 }
 
 // ---------- Lógica ----------
@@ -591,7 +788,10 @@ function sendToTarget(t,from,s0){
     const tg=targets[i]; if(locked[i]||!tg||tg.t!==t||tg.pop>0) continue;
     const k=tg.fill.indexOf(false); if(k<0) continue;
     tg.fill[k]=true;
-    fly(t,from,tgtPos(i,k),s0,BOX_ITEM,()=>{ tg.landed[k]=true; sorted++; if(tg.landed.every(Boolean)) tg.pop=0.001; });
+    snd('up',{k});                                   // sonido de subida hacia la caja
+    fly(t,from,tgtPos(i,k),s0,BOX_ITEM,()=>{ tg.landed[k]=true; sorted++; snd('place',{k});
+      if(tg.landed.every(Boolean)){ tg.pop=0.001; boxCombo=(performance.now()-lastBoxAt<2500)?boxCombo+1:1; lastBoxAt=performance.now();
+        snd('box',{combo:boxCombo}); burst(i); } });
     return true;
   }
   return false;
@@ -599,7 +799,8 @@ function sendToTarget(t,from,s0){
 function sendToSlot(t,from,s0){
   const i=slots.indexOf(null); if(i<0) return false;
   const s={t,landed:false}; slots[i]=s;
-  fly(t,from,slotPos(i),s0,SLOT_ITEM,()=>{ s.landed=true; pullFromSlots(); }); // si ya hay vitrina que calce, sube de una vez
+  fly(t,from,slotPos(i),s0,SLOT_ITEM,()=>{ s.landed=true; snd('slot'); pullFromSlots();
+    if(state==='play'&&slots.filter(Boolean).length===slots.length-1) setTimeout(()=>snd('warn'),120); }); // si ya hay vitrina que calce, sube de una vez
   return s;
 }
 function fits(t){ return targets.some((tg,i)=>!locked[i]&&tg&&tg.t===t&&tg.pop===0&&tg.fill.includes(false)); }
@@ -609,7 +810,7 @@ function checkLose(){
   if(targets.some(tg=>tg&&tg.pop>0)) return;
   const canSlot=slots.some(s=>fits(s.t));
   const canTray=stations.some(st=>st.rise===0&&st.q[0]&&st.q[0].some(t=>t!==null&&fits(t)));
-  if(!canSlot&&!canTray){ state='lose'; showLose(); }
+  if(!canSlot&&!canTray){ state='lose'; mus(null); snd('lose'); showLose(); }
 }
 // Revivir: los juguetes de la espera vuelven a los estantes (no se pierden, el nivel sigue completable)
 function revive(){
@@ -626,7 +827,7 @@ function revive(){
   });
   starts.forEach((p,i)=>fly(items[i],p,{x:p.x,y:H+150},SLOT_ITEM,90,()=>{}));
   revives++;
-  state='play'; hideAll();
+  state='play'; hideAll(); snd('boost'); mus(gameSong());
 }
 function showLose(){
   const left=MAX_REVIVES-revives, can=left>0;
@@ -641,6 +842,7 @@ function showLose(){
 function showWin(){
   winGain=coinsFor(level-1); winDoubled=false;
   addCoins(winGain);
+  mus(null); snd('win'); setTimeout(()=>snd('coin'),900);
   $('winText').textContent=T.winText(level-1);
   $('winCoins').textContent='+'+winGain;
   $('winDouble').hidden=false; $('winDouble').disabled=false;
@@ -679,7 +881,7 @@ function checkEmpty(st){
 }
 function unlockBox(i){
   if(!locked[i]||(window.Ads&&Ads.busy)) return;
-  rewarded('unlock',()=>{ if(!locked[i]||state==='menu') return; locked[i]=false; targets[i]=makeTarget(i); pullFromSlots(); });
+  rewarded('unlock',()=>{ if(!locked[i]||state==='menu') return; locked[i]=false; targets[i]=makeTarget(i); snd('unlock'); pullFromSlots(); });
 }
 // ---------- Potenciadores ----------
 // Quita un juguete de un estante (cualquier capa) y limpia capas vacías
@@ -696,6 +898,7 @@ function canUse(id){
   return false;
 }
 function applyBooster(id){
+  snd(id==='slot'?'unlock':id);
   if(id==='slot'){ extraUsed=true; slots.push(null); buildBg(); pullFromSlots(); }
   else if(id==='magnet'){
     // la vitrina más avanzada: sube los juguetes que le faltan (primero de la espera, luego del frente, luego de atrás)
@@ -758,7 +961,7 @@ function tap(x,y){
       if(Math.abs(p.x-x)<CELL/2 && y>p.y-ITEM*0.5 && y<rowBoard(st.row)+20){
         const tr=st.q[0];
         if(sendToTarget(t,p,ITEM)){ tr[j]=null; checkEmpty(st); }
-        else{ const sl=sendToSlot(t,p,ITEM); if(sl){ history.push({slot:sl,st,tr,j}); tr[j]=null; checkEmpty(st); } }
+        else{ const sl=sendToSlot(t,p,ITEM); if(sl){ snd('pick'); history.push({slot:sl,st,tr,j}); tr[j]=null; checkEmpty(st); } }
         return;
       }
     }
@@ -777,9 +980,24 @@ cv.addEventListener('pointerdown',e=>{
 // ---------- Overlay ----------
 const $=id=>document.getElementById(id);
 let assetsReady=false;
-function hideAll(){ ['home','win','over','pause'].forEach(id=>$(id).hidden=true); }
+function hideAll(){ ['home','win','over','pause','settings','credits'].forEach(id=>$(id).hidden=true); }
 function show(id){ hideAll(); $(id).hidden=false; }
-function goMenu(){ state='menu'; $('homeLevel').textContent=T.level+' '+level; $('playLabel').textContent=assetsReady?T.level+' '+level:T.loading; updateCoinUI(); show('home'); }
+function goMenu(){ state='menu'; renderHome(); show('home'); mus('menu'); }
+function renderHome(){
+  $('playTitle').textContent=level>1?T.continueT:T.play;
+  $('playLabel').textContent=assetsReady?T.level+' '+level:T.loading;
+  // potenciadores: usos que quedan, o el nivel en que se abren
+  $('boostPips').innerHTML=BOOSTERS.map(b=>{
+    const open=level>=b.lv, n=inv.n[b.id]||0;
+    return '<span class="boost-pip'+(open?'':' locked')+'">'+T.boostNames[b.id]+' · '+(open?n:'🔒 '+T.lv+b.lv)+'</span>';
+  }).join('');
+  updateCoinUI();
+}
+// Ajustes y Créditos se abren encima de la portada o de la pausa
+function openSettings(){ $('privacyBtn').hidden=!(window.Ads&&Ads.privacyRequired&&Ads.privacyRequired()); $('settings').hidden=false; }
+function closeSettings(){ $('settings').hidden=true; }
+function openCredits(){ $('credits').hidden=false; }
+function closeCredits(){ $('credits').hidden=true; }
 // Pantalla completa solo entre niveles (nunca a mitad de nivel). Si acaba de ver un anuncio con recompensa, se salta esta vez.
 function nextLevel(){
   const done=level-1;
@@ -792,6 +1010,8 @@ function nextLevel(){
 function rewarded(placement,onOk){ if(window.Ads) Ads.showRewarded(placement,onOk,()=>{}); else onOk(); }
 // Android: botón atrás (true = lo manejó el juego; false = Android pregunta si salir) y app en segundo plano
 window.__androidBack=()=>{
+  if(!$('credits').hidden){ closeCredits(); return true; }
+  if(!$('settings').hidden){ closeSettings(); return true; }
   if(state==='play'){ state='pause'; show('pause'); return true; }
   if(state==='pause'){ state='play'; hideAll(); return true; }
   if(state==='win'||state==='lose'){ goMenu(); return true; }
@@ -800,22 +1020,54 @@ window.__androidBack=()=>{
 window.__androidPause=()=>{ if(state==='play'){ state='pause'; show('pause'); } };
 // las filas se detienen mientras se ve un anuncio
 if(window.Ads){ Ads.onPause=()=>{adPaused=true;}; Ads.onResume=()=>{adPaused=false;}; }
-// textos
-$('tagline').textContent=T.tagline; $('playZone').textContent=T.zone;
-$('playTitle').textContent=T.play; $('playSub').textContent=T.sub;
+// textos (se vuelven a poner al cambiar el idioma en Ajustes)
+function applyTexts(){
+document.documentElement.lang=LANG;
+$('tagline').textContent=T.tagline; $('playZone').textContent=T.zone; $('playSub').textContent=T.sub;
+$('boostZone').textContent=T.boostZone; $('boostTitle').textContent=T.boostTitle; $('homeSettings').setAttribute('aria-label',T.settings);
+$('settingsTitle').textContent=T.settings; $('languageName').textContent=T.language; $('langName').textContent=T.langName;
+$('privacyName').textContent=T.privacy; $('creditsName').textContent=T.credits; $('settingsClose').textContent=T.close; $('pauseSettings').textContent=T.settings;
+$('creditsTitle').textContent=T.credits; $('versionWord').textContent=T.version; $('creditsClose').textContent=T.close;
+['cMadeBy','cDev','cFont','cThanks','cThanksText','cContact','cRights','cMusic','cMusicText','cSfx'].forEach(k=>$(k).textContent=T[k]);
+$('musicName').textContent=T.music; $('sfxName').textContent=T.sfx; renderSound();
 $('winTitle').textContent=T.win; $('winNextLabel').textContent=T.next; $('winMenu').textContent=T.menu;
 $('overTitle').textContent=T.lose; $('overText').textContent=T.loseText; $('overRetry').textContent=T.retry; $('overMenu').textContent=T.menu;
 $('winDoubleLabel').textContent=T.double; $('overAdLabel').textContent=T.reviveAd; $('overPayLabel').textContent=T.revivePay;
 $('pauseTitle').textContent=T.pause; $('pauseGoLabel').textContent=T.resume; $('pauseRetry').textContent=T.retry; $('pauseMenu').textContent=T.menu;
+if(state==='menu') renderHome();
+}
+applyTexts();
+// versión de la app (Android la da; en la web dice "web")
+try{ $('appVersion').textContent=(window.AndroidApp&&AndroidApp.version)?AndroidApp.version():'web'; }catch(e){ $('appVersion').textContent='web'; }
 $('winToys').innerHTML=['osito','unicornio','robot'].map(n=>'<img src="assets/'+n+'.png" alt="">').join('');
 // botones
 $('playBtn').onclick=()=>{ if(assetsReady) newLevel(); };
 $('winNext').onclick=nextLevel; $('overRetry').onclick=newLevel; $('pauseRetry').onclick=newLevel;
 $('winMenu').onclick=goMenu; $('overMenu').onclick=goMenu; $('pauseMenu').onclick=goMenu;
+$('homeSettings').onclick=openSettings; $('pauseSettings').onclick=openSettings;
+$('settingsClose').onclick=closeSettings; $('creditsBtn').onclick=openCredits; $('creditsClose').onclick=closeCredits;
+$('settings').onclick=e=>{ if(e.target===$('settings')) closeSettings(); };
+$('credits').onclick=e=>{ if(e.target===$('credits')) closeCredits(); };
+$('privacyBtn').onclick=()=>{ if(window.Ads&&Ads.showPrivacy) Ads.showPrivacy(); };
+window.__adsPrivacyChanged=()=>{ $('privacyBtn').hidden=!(window.Ads&&Ads.privacyRequired&&Ads.privacyRequired()); };
+function renderSound(){
+  const st=(window.Sound&&Sound.settings)||{music:true,sfx:true};
+  $('musicToggle').classList.toggle('off',!st.music); $('musicToggle').setAttribute('aria-pressed',st.music);
+  $('sfxToggle').classList.toggle('off',!st.sfx); $('sfxToggle').setAttribute('aria-pressed',st.sfx);
+}
+$('musicToggle').onclick=()=>{ if(window.Sound){ Sound.setMusic(!Sound.settings.music); renderSound(); } };
+$('sfxToggle').onclick=()=>{ if(window.Sound){ Sound.setSfx(!Sound.settings.sfx); renderSound(); snd('click'); } };
+// sonido de botones
+document.addEventListener('click',e=>{ if(e.target.closest('.btn,.mode-card,.gear-btn,#langToggle,#creditsBtn,#privacyBtn')) snd('click'); },true);
+$('langToggle').onclick=()=>{
+  LANG=LANG==='en'?'es':'en'; T=TEXTS[LANG];
+  try{ localStorage.setItem('toysort_lang',LANG); }catch(e){}
+  applyTexts();
+};
 $('pauseGo').onclick=()=>{ if(state==='pause'){ state='play'; hideAll(); } };
 $('winDouble').onclick=()=>rewarded('double',()=>{
   if(winDoubled) return;
-  winDoubled=true; addCoins(winGain);
+  winDoubled=true; addCoins(winGain); snd('coin');
   $('winCoins').textContent='+'+(winGain*2)+' · '+T.doubled;
   const r=$('winReward'); r.classList.remove('pop'); void r.offsetWidth; r.classList.add('pop');
   $('winDouble').hidden=true;
@@ -832,6 +1084,7 @@ function loop(now){
   shownCoins+=(coins-shownCoins)*Math.min(1,dt*8); if(Math.abs(coins-shownCoins)<0.5) shownCoins=coins;
   const prog=total?sorted/total:0; shownProg+=(prog-shownProg)*Math.min(1,dt*6);
   if(toast) toast.t-=dt;
+  updateFx(dt);
   if(shuffleFx>0) shuffleFx=Math.max(0,shuffleFx-dt/0.35);
   stations.forEach(st=>{ if(st.rise>0) st.rise=Math.max(0,st.rise-dt/RISE_TIME); });
   for(let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.k+=dt/0.32; if(f.k>=1){ flying.splice(i,1); f.done(); } }
@@ -844,7 +1097,17 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 newLevel(); goMenu();
-whenReady(()=>{ assetsReady=true; $('playBtn').disabled=false; if(state==='menu') $('playLabel').textContent=T.level+' '+level; });
+const SPLASH_MIN_MS=3000;
+function closeSplash(){
+  const el=$('splash'); if(!el) return;
+  const wait=Math.max(0,SPLASH_MIN_MS-(Date.now()-(window.__splashStart||0)));
+  setTimeout(()=>{
+    const done=()=>{ if(el.parentNode) el.remove(); };
+    el.addEventListener('animationend',e=>{ if(e.target===el) done(); });
+    el.classList.add('leaving'); setTimeout(done,600);
+  },wait);
+}
+whenReady(()=>{ assetsReady=true; $('playBtn').disabled=false; if(state==='menu') renderHome(); closeSplash(); });
 requestAnimationFrame(loop);
 </script>
 </body>
